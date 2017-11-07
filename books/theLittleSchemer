@@ -1,0 +1,37 @@
+# the little schemer
+### 第一部分搞清楚下面三个概念
+atom
+list
+s-expression
+
+### 三种表示法
+List-of-Int :: = ()
+            :: = (Int . List-of-Int)
+            
+List-of-Int :: = () | (Int . List-of-Int)
+
+List-of-Int :: = ( { Int } ∗ )
+
+# 定义list 和 s-expression
+Definition 1.1.6 (s-list, s-exp)
+  S-list :: = ( { S-exp } ∗ )
+  S-exp :: = Symbol | S-list
+
+### list
+We can define the set of lists by
+      List :: = () | (Scheme value . List)
+### 依靠以上定义，看下面问题：
+Is it true that this is an S-expression?
+(( x  y)  z )
+
+###
+Binary-search-tree :: = () | (Int Binary-search-tree Binary-search-tree)
+
+### how to design programs
+list-of-number
+list-of-symbol
+list-of-list
+
+list的闭包性质大大增强了语言的表达力。
+
+
