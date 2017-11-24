@@ -1,0 +1,59 @@
+# 图
+
+0 the representation of graph
+;; 邻接矩阵
+;; 邻接表(指针数组)
+
+1 广度优先搜索
+// 类似于树的层序遍历（需要队列）
+广度优先搜索(Braedth First Search, BFS)
+void BFS(Vertext V){
+	visited[V] = true;
+	Enqueue(V, Q);
+	while(!IsEmpty(Q)){
+		V = Dequeue(Q);
+		for(V的每个邻接点W)
+			if(!visited[W]){
+				visited[W] = true;
+				Enqueue(W, Q);
+			}
+	}
+}
+
+参考：http://www.bilibili.com/video/av10948002/#page=69
+
+2 深度优先搜索
+深度优先搜索(Depth First Search, DFS)
+// 类似于树的先序遍历
+void DFS(Vertxt V){
+	visited[V] = true;
+	for(V的每个邻接点W){
+		if(!visited[W])
+			DFS(W);
+	}
+}
+参考：http://www.bilibili.com/video/av10948002/#page=68
+
+3 为什么需要两种遍历？
+
+
+4 图不连通怎么办？
+void ListComponents(Graph G){
+	for(each V in G)
+		if(!visited[V]){
+			DFS(V);/* or BFS(V) */
+		}
+}
+
+5 最短路径问题（Shortest Path）
+何谓“最短”？（看边的权值）
+百度公交查询结果中，有以下选择：（此搜索中，原点和目标点都是固定的）
+a) 最少换乘(这里的 最短，指的是经过的边的数目)
+b) 最小距离
+c) 最小路费
+
+1) 原点（source）固定
+2) source不固定
+
+
+
