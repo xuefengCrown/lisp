@@ -1,0 +1,46 @@
+# 3.15 示例：最短路径 (Example: Shortest Path)
+《ANSI Common Lisp》
+
+## 详细问题描述
+图 3.12 包含一个搜索网络中最短路径的程序。函数 shortest-path 接受一个起始节点，目的节点以及一个网络，并返回最短路径，如果有的话。
+
+在这个范例中，节点用符号表示，而网络用含以下元素形式的关联列表来表示：
+(node . neighbors) ;; ???
+
+所以由图 3.13 展示的最小网络 (minimal network)可以这样来表示：
+
+(setf min '((a b c) (b c) (c d)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;
+(defun shortest-path (start end net)
+  (bfs end (list (list start)) net))
+
+(defun bfs (end queue net)
+  (if (null queue)
+      nil
+      (let ((path (car queue)))
+        (let ((node (car path)))
+          (if (eql node end)
+              (reverse path)
+              (bfs end
+                   (append (cdr queue)
+                           (new-paths path node net))
+                   net))))))
+
+(defun new-paths (path node net)
+  (mapcar #'(lambda (n)
+              (cons n path))
+          (cdr (assoc node net))))
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;; 调用过程
+(shortest-path 'a 'd min)
+(bfs 'd '((A)) min)
+
+(bfs 'd '((B A) (C A)) min)
+
+(bfs 'd '((C A) (C B A)) min)
+
+(bfs 'd '((C B A) (D C A)) min)
+
+(bfs 'd '((D C A) (D C B A)) min)
+
