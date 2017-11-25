@@ -1,0 +1,22 @@
+
+# 3 定义一个函数，接受一个列表并返回一个列表，指出相等元素出现的次数，并由最常见至最少见的排序：
+> (occurrences '(a b a d a c d c a))
+((A . 4) (C . 2) (D . 2) (B . 1))
+
+
+(defun occurrences (slist map)
+  (if (null slist)
+      map
+    (occurrences (cdr slist) (deal (car slist) map))))
+
+(defun deal (keyword map)
+  (if (null map)
+      (cons (cons keyword 1) nil)
+    (let ((getpair (car map)))
+      (let ((getkey (car getpair)))
+	(let ((getval (cdr getpair)))
+	  (if (eql keyword getkey)
+	      (cons (cons keyword (+ 1 getval)) (cdr map))
+	    (cons getpair (deal keyword (cdr map)))
+	      ))))))
+
