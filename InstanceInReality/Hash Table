@@ -1,0 +1,45 @@
+# 4.8 哈希表 (Hash Table)
+
+第三章演示过列表可以用来表示集合（sets）与映射（mappings）。
+但当列表的长度大幅上升时（或是 10 个元素），使用哈希表的速度比较快。
+你通过调用 make-hash-table 来构造一个哈希表，它不需要传入参数：
+
+> (setf ht (make-hash-table))
+#<Hash-Table BF0A96>
+
+一个哈希表，与一个关联列表类似，是一种表达对应关系的方式。
+要取出与给定键值有关的数值，我们调用 gethash 并传入一个键值与哈希表。
+预设情况下，如果没有与这个键值相关的数值， gethash 会返回 nil 。
+> (gethash 'color ht)
+NIL
+NIL
+
+在这里我们首次看到 Common Lisp 最突出的特色之一：一个表达式竟然可以返回多个数值。函数 gethash 返回两个数值。
+第一个值是与键值有关的数值，第二个值说明了哈希表是否含有任何用此键值来储存的数值。
+由于第二个值是 nil ，我们知道第一个 nil 是缺省的返回值，而不是因为 nil 是与 color 有关的数值。
+
+要把数值与键值作关联，使用 gethash 搭配 setf ：
+> (setf (gethash 'color ht) 'red)
+RED
+现在如果我们再次调用 gethash ，我们会得到我们刚插入的值：
+> (gethash 'color ht)
+RED
+T
+第二个返回值证明，我们取得了一个真正储存的对象，而不是预设值。
+
+
+????????????????????????????????????????
+存在哈希表的对象或键值可以是任何类型。举例来说，如果我们要保留函数的某种讯息，我们可以使用哈希表，用函数作为键值，字符串作为词条（entry）：
+
+> (setf bugs (make-hash-table))
+#<Hash-Table BF4C36>
+> (push "Doesn't take keyword arguments."
+        (gethash #'our-member bugs))
+("Doesn't take keyword arguments.")
+由于 gethash 缺省返回 nil ，而 push 是 setf 的缩写，可以轻松的给哈希表新添一个词条。 （有困扰的 our-member 定义在 16 页。）
+????????????????????????????????????????
+
+
+
+
+
