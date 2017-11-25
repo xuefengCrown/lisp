@@ -1,0 +1,29 @@
+# programs are data
+Although sophisticated Lispers profit from the realization that programs are data, 
+to the beginner this is a major source of confusion. 
+
+and predicates, which answer yes-or-no questions.(谓词)
+
+test your understanding
+
+what functions and data are.
+
+The term data means information, such as numbers, words, or lists of things. You can think
+of a function as a box through which data flows. The function operates on the
+data in some way, and the result is what flows out.
+
+
+how to put existing functions together to make new ones—the essence of
+computer programming.
+
+
+
+
+
+
+
+
+
+
+
+
