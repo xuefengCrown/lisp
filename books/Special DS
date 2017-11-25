@@ -277,7 +277,40 @@ position-if 接受除了 :test 之外的所有关键字参数。
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+## 4.6 结构 (Structures)
+结构可以想成是豪华版的向量。
 
+要想定义结构，使用 defstruct 。在最简单的情况下，只要给出结构及字段的名字便可以了：
+
+(defstruct point
+  x
+  y)
+这里定义了一个 point 结构，具有两个字段 x 与 y 。
+同时隐式地定义了 make-point 、 point-p 、 copy-point 、 point-x 及 point-y 函数。
+
+
+;; !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+2.3 节提过， Lisp 程序可以写出 Lisp 程序。这是目前所见的明显例子之一。
+当你调用 defstruct 时，它自动生成了其它几个函数的定义。
+有了宏以后，你将可以自己来办到同样的事情（如果需要的话，你甚至可以自己写出 defstruct ）。
+
+每一个 make-point 的调用，会返回一个新的 point 。可以通过给予对应的关键字参数，来指定单一字段的值：
+(setf p (make-point :x 0 :y 0))
+#S(POINT X 0 Y 0)
+存取 point 字段的函数不仅被定义成可取出数值，也可以搭配 setf 一起使用。
+
+> (point-x p)
+0
+> (setf (point-y p) 2)
+2
+> p
+#S(POINT X 0 Y 2)
+定义结构也定义了以结构为名的类型。每个点的类型层级会是，类型 point ，接着是类型 structure ，
+再来是类型 atom ，最后是 t 类型。所以使用 point-p 来测试某个东西是不是一个点时，也可以使用通用性的函数，像是 typep 来测试。
+> (point-p p)
+T
+> (typep p 'point)
+T
 
 
 
