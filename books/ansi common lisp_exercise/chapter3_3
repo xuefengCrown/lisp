@@ -28,3 +28,26 @@
 因为 member 默认使用 eql 作为比较器
 
 (member '(a) '((a) (b)) :test #'equal)
+
+5 假设函数 pos+ 接受一个列表并返回把每个元素加上自己的位置的列表：
+> (pos+ '(7 5 1 4))
+(7 6 3 7)
+使用 (a) 递归 (b) 迭代 (c) mapcar 来定义这个函数。
+
+(defun pos+ (nlist)
+  (if (null nlist)
+      '()
+    (cons (car nlist)
+	  (mapcar #'(lambda (x)
+		      (+ 1 x))
+		  (pos+ (cdr nlist))))))
+
+
+(defun pos+iter (nlist pos)
+  (if (null nlist)
+      '()
+    (cons (+ pos (car nlist))
+	  (pos+iter (cdr nlist) (+ 1 pos)))))
+	 
+	 
+
