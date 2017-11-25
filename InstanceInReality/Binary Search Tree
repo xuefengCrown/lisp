@@ -1,0 +1,96 @@
+# 4.7 示例：二叉搜索树 (Example: Binary Search Tree)
+
+由于 sort 系统本身就有了，极少需要在 Common Lisp 里编写排序程序。
+本节将演示如何解决一个与此相关的问题，这个问题尚未有现成的解决方案：维护一个已排序的对象集合。
+本节的代码会把对象存在二叉搜索树里（ binary search tree ）或称作 BST。
+当二叉搜索树平衡时，允许我们可以在与时间成 log n 比例的时间内，来寻找、添加或是删除元素，其中 n 是集合的大小。
+
+1 一棵二叉搜索树指的是，如何表示？
+一棵二叉搜索树可以是 nil 或是一个左子、右子树都是二叉搜索树的节点。
+
+
+(defstruct (node (:print-function
+                  (lambda (n s d)
+                    (format s "#<~A>" (node-elt n)))))
+  elt (l nil) (r nil))
+
+;; 此处nil 是 l r 的初始值
+;;
+(defstruct point
+  (x 0)
+  (y 0)
+  )
+;;
+
+(defun bst-insert (obj bst <)
+  (if (null bst)
+      (make-node :elt obj)
+      (let ((elt (node-elt bst)))
+        (if (eql obj elt)
+            bst
+            (if (funcall < obj elt)
+                (make-node
+                   :elt elt
+                   :l (bst-insert obj (node-l bst) <) ; lisp中的 ( 是方法的调用提示
+                   :r (node-r bst))
+                (make-node
+                   :elt elt
+                   :r (bst-insert obj (node-r bst) <)
+                   :l (node-l bst)))))))
+
+; lisp中的 ( 是方法的调用提示                  
+; 注意: < 是变量名，它的实际值是 #'<
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;                   
+;; 构造树
+> (setf nums nil)
+NIL
+> (dolist (x '(5 8 4 2 1 9 6 7 3))
+    (setf nums (bst-insert x nums #'<)))
+NIL
+
+;; 分析树的构造过程 (不一定准确，只是为了便于理解)
+最开始树是 ()
+insert 5: (5 () ())
+insert 8: (5 () (8 () ()))
+insert 4: (5 (4 () ()) (8 () ()))
+insert 2: (5 (4 (2 () ()) ()) (8 () ()))
+insert 1: (5 (4 (2 (1 () ()) ()) ()) (8 () ()))
+insert 9: (5 (4 (2 (1 () ()) ()) ()) (8 () (9 () ())))
+......
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun bst-find (obj bst <)
+  (if (null bst)
+      nil
+      (let ((elt (node-elt bst)))
+        (if (eql obj elt)
+            bst
+            (if (funcall < obj elt)
+                (bst-find obj (node-l bst) <)
+                (bst-find obj (node-r bst) <))))))
+
+(defun bst-min (bst)
+  (and bst
+       (or (bst-min (node-l bst)) bst)))
+
+(defun bst-max (bst)
+  (and bst
+       (or (bst-max (node-r bst)) bst)))
+
+;; 相比于二叉搜索树的构建，查找要简单的多;
+;; lisp 中的假 是 nil; 0 却是 真;
+;; and 在寻找 假(返回遇到的第一个假); or 在寻找 真(返回遇到的第一个真)
+;; 和 cons 函数一样， bst-insert 不改动做为第二个实参所传入的二叉搜索树。
+
+要找到二叉搜索树的最小及最大的元素是很简单的。要找到最小的，我们沿着左子树的路径走，如同 bst-min 所做的。
+要找到最大的，沿着右子树的路径走，如同 bst-max 所做的：
+> (bst-min nums)
+#<1>
+> (bst-max nums)
+#<9>
+
+;; TODO 移除元素
+要从二叉搜索树里移除元素一样很快，但需要更多代码。
+
+;;
+;;
