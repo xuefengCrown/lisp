@@ -20,3 +20,7 @@
 	    (cons getpair (deal keyword (cdr map)))
 	      ))))))
 
+4 为什么 (member '(a) '((a) (b))) 返回 nil？
+因为 member 默认使用 eql 作为比较器
+
+(member '(a) '((a) (b)) :test #'equal)
