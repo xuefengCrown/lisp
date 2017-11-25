@@ -1,0 +1,76 @@
+;; 通过现实中的实例来学习
+;; 4.5 示例：解析日期 (Example: Parsing Dates)
+
+;; 作为序列操作的示例，本节演示了如何写程序来解析日期。
+;; 我们将编写一个程序，可以接受像是 “16 Aug 1980” 的字符串，然后返回一个表示日、月、年的整数列表。
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun tokens (str test start)
+  (let ((p1 (position-if test str :start start)))
+    (if p1
+        (let ((p2 (position-if #'(lambda (c)
+                                   (not (funcall test c)))
+                               str :start p1)))
+          (cons (subseq str p1 p2)
+                (if p2
+                    (tokens str test p2)
+                    nil)))
+        nil)))
+        
+;; tokens 分隔字符串
+;; 第一个函数 tokens ，用来从字符串中取出语元 （token）。
+;; 给定一个字符串及测试函数，满足测试函数的字符组成子字符串，子字符串再组成列表返回。
+;; 举例来说，如果测试函数是对字母返回真的 alpha-char-p 函数，我们得到：
+> (tokens "ab12 3cde.f" #'alpha-char-p 0)
+("ab" "cde" "f")
+;;
+
+;; constituent，如果c是非空的图形字符，返回真;
+(defun constituent (c)
+  (and (graphic-char-p c)
+       (not (char= c #\ ))))
+       
+  ;; c 是 图形字符，而且not 空白字符
+  ;; #\b 与'b  的区别是什么
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; 函数 parse-date 接受一个特别形式组成的日期，并返回代表这个日期的整数列表：
+> (parse-date "16 Aug 1980")
+(16 8 1980)
+
+(defun parse-date (str)
+  (let ((toks (tokens str #'constituent 0)))
+    (list (parse-integer (first toks))
+          (parse-month (second toks))
+          (parse-integer (third toks)))))
+
+(defconstant month-names
+  #("jan" "feb" "mar" "apr" "may" "jun"
+    "jul" "aug" "sep" "oct" "nov" "dec"))
+;; vector，向量的字面量表示 #("jan" "feb")
+
+(defun parse-month (str)
+  (let ((p (position str month-names
+                         :test #'string-equal)))
+    (if p
+        (+ p 1)
+        nil)))
+
+;; 由于使用的是 string-equal 来匹配月份的名字，所以输入可以不分大小写。
+;; 要找到年和日，调用内置的 parse-integer ， parse-integer 接受一个字符串并返回对应的整数。
+
+
+如果需要自己写程序来解析整数，也许可以这么写：
+(defun read-integer (str)
+  (if (every #'digit-char-p str)
+      (let ((accum 0))
+        (dotimes (pos (length str))
+          (setf accum (+ (* accum 10)
+                         (digit-char-p (char str pos)))))
+        accum)
+    nil))
+这个定义演示了在 Common Lisp 中，字符是如何转成数字的 ── 函数 digit-char-p 不仅测试字符是否为数字，同时返回了对应的整数。
+;;
+;;
