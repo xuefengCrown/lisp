@@ -20,6 +20,10 @@
 	    (cons getpair (deal keyword (cdr map)))
 	      ))))))
 
+;; 调用
+* (occurrences '(a b a d a c d c a) nil)
+((A . 4) (B . 1) (D . 2) (C . 2))
+
 4 为什么 (member '(a) '((a) (b))) 返回 nil？
 因为 member 默认使用 eql 作为比较器
 
