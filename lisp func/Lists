@@ -1,0 +1,105 @@
+# length
+The primitive function LENGTH computes the length of a list. It is an
+error to give LENGTH a symbol or number as input.
+
+
+The name "Lisp" is an acronym for List Processor. 
+
+Lists are important because they can be made to represent practically
+anything: sets, tables, and graphs, and even English sentences. Functions can
+also be represented as lists, but we’ll save that topic for the next chapter.
+
+2.2 WHAT DO LISTS LOOK LIKE?
+Every list has two forms: a printed representation and an internal one. The
+printed representation is most convenient for people to use, because it’s
+compact and easy to type on a computer keyboard. The internal representation
+is the way the list actually exists in the computer’s memory.
+
+
+Inside the computer’s memory, lists are organized as chains of cons cells, which we’ll
+draw as boxes. 
+
+the list (AARDVARK) and the symbol AARDVARK are different objects. 
+
+
+2.4 NESTED LISTS
+This is a list of three lists, not a list of six symbols.
+((BLUE SKY) (GREEN GRASS) (BROWN EARTH))
+
+2.5 LENGTH OF LISTS
+
+Remember that the computer does not use parentheses internally. From the
+computer’s point of view, the list (A (B C) D) contains three elements because
+its internal representation contains three top-level cons cells
+
+
+2.6 NIL: THE EMPTY LIST
+NIL is the only thing that is both a symbol and a list.
+
+2.7 EQUALITY OF LISTS
+Two lists are considered EQUAL if their corresponding elements are EQUAL.
+
+2.8 FIRST, SECOND, THIRD, AND REST
+
+The REST function is the complement of FIRST:  It returns a list
+containing everything but the first element.
+
+2.9 FUNCTIONS OPERATE ON POINTERS
+When we say that an object such as a list or symbol is an input to a function,
+we are speaking informally. Inside the computer, everything is done with
+pointers, so the real input to the function isn’t the object itself, but a pointer to
+the object. Likewise, the result returned by a function is really a pointer.
+
+So the result of REST is a pointer into the same cons cell chain as the input to REST.
+No new cons cells were created by REST when it returned (BIG BOPPER); all
+it did was extract and return a pointer.
+
+2.10 CAR AND CDR
+
+
+2.11 CONS
+The CONS function creates cons cells.
+It takes two inputs and returns a
+pointer to a new cons cell whose CAR points to the first input and whose CDR
+points to the second. The term ‘‘CONS’’ is short for CONStruct.
+
+
+2.15 LIST PREDICATES
+listp
+The CONSP predicate returns T if its input is a cons cell. CONSP is
+almost the same as LISTP; the difference is in their treatment of NIL. NIL is a
+list, but it is not a cons cell.
+
+The ATOM predicate returns T if its input is anything other than a cons
+cell. ATOM and CONSP are opposites; when one returns T, the other always
+returns NIL.
+
+The word ‘‘atom’’ comes from the Greek atomos, meaning indivisible.
+Numbers and symbols are atomic because they cannot be taken apart.
+Nonempty lists aren’t atomic: FIRST and REST take them apart.
+
+The NULL predicate returns T if its input is NIL. Its behavior is the same
+as the NOT predicate. By convention, Lisp programmers reserve NOT for
+logical operations: changing true to false and false to true. They use NULL
+when they want to test whether a list is empty.
+
+
+2.17 NONLIST CONS STRUCTURES
+A proper list is a cons cell chain ending in NIL. 
+
+There are other sorts of cons cell structures that are not proper lists,
+because their chains do not end in NIL. 
+
+(A B C . D)
+a dotted list
+
+Although LIST is often a more convenient tool than CONS for
+constructing lists, the LIST function can only build proper lists, since it always
+constructs a chain ending in NIL. For dotted lists CONS must be used.
+
+
+
+
+
+
+
