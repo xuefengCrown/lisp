@@ -1,0 +1,56 @@
+
+4.8 EVALUATING AND AND OR
+The precise rule for evaluating AND is: Evaluate the clauses one
+at a time. If a clause returns NIL, stop and return NIL; otherwise go on to the
+next one. If all the clauses yield non-NIL results, return the value of the last
+clause.
+
+The rule for evaluating OR is: Evaluate the clauses one at a time. If a
+clause returns something other than NIL, stop and return that value; otherwise
+go on to the next clause, or return NIL if none are left.
+(or nil t t) ⇒ t
+(or ’george nil ’harry) ⇒ george
+(or ’george ’fred ’harry) ⇒ george
+(or nil ’fred ’harry) ⇒ fred
+
+
+4.11 CONDITIONALS ARE INTERCHANGEABLE
+Functions that use AND and OR can also be implemented using COND or IF,
+and vice versa. Recall the definition of POSNUMP:
+(defun posnump (x)
+(and (numberp x) (> x 0)))
+Here is a version of POSNUMP written with IF instead of AND:
+(defun posnump-2 (x)
+(if (numberp x) (> x 0) nil))
+
+
+Let’s look at another use of conditionals. This is the original version of
+WHERE-IS, using COND:
+(defun where-is (x)
+  (cond ((equal x ’paris) ’france)
+        ((equal x ’london) ’england)
+        ((equal x ’beijing) ’china)
+        (t ’unknown)))
+This COND has four clauses. We can write WHERE-IS using IF instead
+of COND by putting three IFs together. Such a construct is called a nested if.
+(defun where-is-2 (x)
+  (if (equal x ’paris) ’france
+    (if (equal x ’london) ’england
+      (if (equal x ’beijing) ’china
+        ’unknown))))
+        
+;;
+We can write another version of WHERE-IS using AND and OR. This
+version employs a simple two-level scheme rather than the more complex
+nesting required for IF.
+(defun where-is-3 (x)
+  (or (and (equal x ’paris) ’france)
+      (and (equal x ’london) ’england)
+      (and (equal x ’beijing) ’china)
+        ’unknown))
+
+
+
+
+
+
