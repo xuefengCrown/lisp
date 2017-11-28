@@ -79,5 +79,44 @@ In Lisp, a function creates variables automatically when it is is invoked; they
 (usually) go away when the function returns. 
 
 
+选择Lisp编辑器的原则
+There are two more things a good Lisp editor provides. One is an easy
+way to evaluate expressions while editing. You can position the cursor (or
+mouse) on a function definition, hit a few keys, and that function definition
+will be evaluated without ever leaving the editor. The second thing a good
+editor provides is rapid access to online documentation. If I want to see the
+documentation for any Lisp function or variable, I can call it up with just a few
+keystrokes. The editor also provides online documentation about itself.
+
+
+3.18 INTERNAL STRUCTURE OF SYMBOLS
+We can extract the various components of a symbol using built-in
+Common Lisp functions like SYMBOL-NAME and SYMBOL-FUNCTION.
+The following dialog illustrates this; you’ll see something slightly different if
+you try it on your computer, but the basic idea is the same.
+> (symbol-name ’equal)
+"EQUAL"
+> (symbol-function ’equal)
+#<Compiled EQUAL function {60463B0}>
+
+
+3.20 SCOPE OF VARIABLES
+The scope of a variable is the region in which it may be referenced.
+
+
+3.21 EVAL AND APPLY
+APPLY is also a Lisp primitive function. APPLY takes a function and a
+list of objects as input.
+
+The first argument to APPLY should be quoted with #’ rather than
+an ordinary quote; #’ is the proper way to quote functions supplied as inputs
+to other functions. This will be explained in more detail in Chapter 7.
+(apply #’+ ’(2 3)) ⇒ 5
+(apply #’equal ’(12 17)) ⇒ nil
+
+
+
+
+
 
 
