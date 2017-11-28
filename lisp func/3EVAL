@@ -1,0 +1,83 @@
+# EVAL Notation 
+In Lisp, functions are data, and EVAL notation allows us to write
+functions that accept other functions as inputs. We’ll explore this
+possibility further in chapter 7.
+
+3.2 THE EVAL FUNCTION
+The EVAL function is the heart of Lisp. EVAL’s job is to evaluate Lisp
+expressions to compute their result. Most expressions consist of a function
+followed by a set of inputs. 
+
+
+3.4 EVALUATION RULES DEFINE THE BEHAVIOR OF EVAL
+EVAL works by following a set of evaluation rules. One rule is that numbers
+and certain other objects are ‘‘self-evaluating,’’ meaning they evaluate to
+themselves. The special symbols T and NIL also evaluate to themselves.
+23 ⇒ 23
+t ⇒ t
+nil ⇒ nil
+
+
+Evaluation Rule for Lists: The first element of the list specifies a
+function to be called. The remaining elements specify arguments to the
+function. The function is called on the evaluated arguments.
+
+
+3.7 EVALUATING SYMBOLS
+The names a function uses for its arguments are independent of the names any
+other function uses. 
+
+Evaluation Rule for Symbols: A symbol evaluates to the value of the
+variable it refers to.
+
+Outside the bodies of HALF and SQUARE, the symbol N refers to the
+global variable named N. A global variable is one that is not associated with
+any function. PI is an example of a global variable that is built in to Common
+Lisp.
+pi ⇒ 3.14159
+
+
+3.8 USING SYMBOLS AND LISTS AS DATA
+But in EVAL notation symbols are used to name variables, so if we write (equal kirk spock)
+Lisp will think we are trying to compare the value of the global variable
+named KIRK with the value of the global variable named SPOCK. 
+
+We can tell Lisp to treat KIRK and SPOCK as data rather than as variable references by
+putting a quote before each one.
+(equal ’kirk ’spock) ⇒ nil
+
+Because the symbols T and NIL evaluate to themselves, they don’t need to be
+quoted to use them as data. Most other symbols do, though.
+(list ’james t ’kirk) ⇒ (james t kirk)
+
+Lists also need to be quoted to use them as data; otherwise Lisp will try to
+evaluate them, which typically results in an ‘‘undefined function’’ error.
+(first (we hold these truths))  ⇒ Error! WE undefined function.
+(first ’(we hold these truths)) ⇒ we
+
+
+3.9 THE PROBLEM OF MISQUOTING
+
+
+3.10 THREE WAYS TO MAKE LISTS
+
+’(foo bar baz) ⇒ (foo bar baz)
+(list ’foo ’bar ’baz) ⇒ (foo bar baz)
+(cons ’foo ’(bar baz)) ⇒ (foo bar baz)
+
+One advantage of building the list up from individual elements is that some of
+the elements can be computed rather than specified directly.
+(list 33 ’squared ’is (* 33 33))
+⇒ (33 squared is 1089)
+If we quote a list, nothing inside it will get evaluated:
+’(33 squared is (* 33 33))
+⇒ (33 squared is (* 33 33))
+
+
+3.12 MORE ABOUT VARIABLES
+In Lisp, a function creates variables automatically when it is is invoked; they
+(usually) go away when the function returns. 
+
+
+
+
