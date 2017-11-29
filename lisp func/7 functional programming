@@ -1,0 +1,240 @@
+# Applicative Programming
+
+INTRODUCTION
+Applicative programming is based on the idea that functions are data, just
+like symbols and lists are data, so one should be able to pass functions as
+inputs to other functions, and also return functions as values. The applicative
+operators we will study in this chapter are functions that take another function
+as input and apply it to the elements of a list in various ways. These operators
+are all built from a primitive function known as FUNCALL. In the Advanced
+Topics section we will write our own applicative operator, and also write a
+function that constructs and returns new functions.
+
+
+7.2 FUNCALL
+FUNCALL calls a function on some inputs. We can use FUNCALL to call
+the CONS function on the inputs A and B like this:
+(funcall #’cons ’a ’b) ⇒ (a . b)
+
+
+7.3 THE MAPCAR OPERATOR
+MAPCAR is the most frequently used applicative operator. It applies a
+function to each element of a list, one at a time, and returns a list of the results.
+
+> (mapcar #’square ’(1 2 3 4 5))
+(1 4 9 16 25)
+> (mapcar #’square ’(3 8 -3 5 2 10))
+(9 64 9 25 4 100)
+
+7.4 MANIPULATING TABLES WITH MAPCAR
+
+Suppose we set the global variable WORDS to a table of English and French
+words:
+(setf words
+  ’((one un)
+    (two deux)
+    (three trois)
+    (four quatre)
+    (five cinq)))
+    
+We can perform several useful manipulations on this table with MAPCAR.
+We can extract the English words by taking the first component of each table
+entry:
+> (mapcar #’first words)
+(ONE TWO THREE FOUR FIVE)
+We can extract the French words by taking the second component of each
+entry:
+> (mapcar #’second words)
+(UN DEUX TROIS QUATRE CINQ)
+We can create a French–English dictionary from the English–French one by
+reversing each table element:
+> (mapcar #’reverse words)
+((UN ONE)
+(DEUX TWO)
+(TROIS THREE)
+(QUATRE FOUR)
+(CINQ FIVE))
+
+
+Given a function TRANSLATE, defined using ASSOC, we can translate a
+string of English digits into a string of French ones:
+(defun translate (x)
+  (second (assoc x words)))
+> (mapcar #’translate ’(three one four one five))
+(TROIS UN QUATRE UN CINQ)
+Besides MAPCAR, there are several other applicative operators built in to
+Common Lisp. Many more are defined by programmers as they are needed,
+using FUNCALL.
+
+
+7.5 LAMBDA EXPRESSIONS
+> (mapcar #’(lambda (n) (* n 10)) ’(1 2 3 4 5))
+(10 20 30 40 50)
+
+Throughout this book we will refer to the objects you get back from a
+#’(LAMBDA...) expression as lexical closures. They will be discussed in
+more detail in the Advanced Topics section.
+
+7.6 THE FIND-IF OPERATOR
+FIND-IF is another applicative operator. If you give FIND-IF a predicate and
+a list as input, it will find the first element of the list for which the predicate
+returns true (any non-NIL value). FIND-IF returns that element.
+> (find-if #’oddp ’(2 4 6 7 8 9))
+7
+> (find-if #’(lambda (x) (> x 3))
+’(2 4 6 7 8 9))
+4
+
+
+7.7 WRITING ASSOC WITH FIND-IF
+ASSOC searches for a table entry with a specified key. We can write a simple
+version of ASSOC that uses FIND-IF to search the table.
+
+
+7.8 REMOVE-IF AND REMOVE-IF-NOT
+> (remove-if #’numberp ’(2 for 1 sale))
+(FOR SALE)
+> (remove-if #’oddp ’(1 2 3 4 5 6 7))
+(2 4 6)
+
+Here are some additional examples of REMOVE-IF-NOT:
+> (remove-if-not #’(lambda (x) (> x 3))
+’(2 4 6 8 4 2 1))
+(4 6 8 4)
+> (remove-if-not #’numberp
+’(3 apples 4 pears and 2 little plums))
+(3 4 2)
+> (remove-if-not #’symbolp
+’(3 apples 4 pears and 2 little plums))
+(APPLES PEARS AND LITTLE PLUMS)
+
+
+page 224
+MINI KEYBOARD EXERCISE
+7.15. In this keyboard exercise we will manipulate playing cards with
+applicative operators. A card will be represented by a list of form (rank
+suit), for example, (ACE SPADES) or (2 CLUBS). A hand will be
+represented by a list of cards.
+
+g. Set the global variable ALL-RANKS to the list
+(2 3 4 5 6 7 8 9 10 jack queen king ace)
+Then write a predicate HIGHER-RANK-P that takes two cards as
+input and returns true if the first card has a higher rank than the
+second. Hint: look at the BEFOREP predicate on page 171 of
+Chapter 6.
+
+Here’s an example of why it is useful for MEMBER to return a sublist.
+The BEFOREP predicate returns a true value if x appears earlier than y in the
+list l.
+(defun beforep (x y l)
+  "Returns true if X appears before Y in L"
+  (member y (member x l)))
+> (beforep ’not ’whom
+’(ask not for whom the bell tolls))
+(WHOM THE BELL TOLLS)
+> (beforep ’thee ’tolls ’(it tolls for thee))
+NIL
+
+
+7.9 THE REDUCE OPERATOR
+任务：生成一副牌
+(setf all-ranks '(2 3 4 5 6 7 8 9 10 JACK QUEEN KING ACE))
+(setf all-colors '(HEARTS DIAMONDS SPADES CLUBS))
+(defun color-rank (color ranks)
+  (mapcar #'(lambda (rank) (list color rank))
+	  ranks))
+
+(reduce #'append
+	(mapcar #'(lambda (color) (color-rank color all-ranks))
+		all-colors))
+    
+7.10 EVERY
+EVERY takes a predicate and a list as input. It returns T if there is no element
+that causes the predicate to return false. Examples:
+> (every #’numberp ’(1 2 3 4 5))
+T
+> (every #’numberp ’(1 2 A B C 5))
+NIL
+
+If EVERY is called with NIL as its second argument, it simply returns T,
+since the empty list has no elements that could fail to satisfy the predicate.
+> (every #’oddp nil)
+T
+> (every #’evenp nil)
+T
+EVERY can also operate on multiple lists, given a predicate that accepts
+multiple inputs.
+> (every #’> ’(10 20 30 40) ’(1 5 11 23))
+T
+Since 10 is greater than 1, 20 greater than 5, 30 greater than 11, and 40 greater
+than 23, EVERY returns T.
+
+
+SUMMARY
+Applicative operators are functions that apply other functions to data
+structures. There are many possible applicative operators, only a few of which
+are built in to Lisp. Advanced Lisp programmers make up their own operators
+whenever they need new ones.
+
+
+7 Advanced Topics
+7.11 OPERATING ON MULTIPLE LISTS
+
+In the beginning of this chapter we used MAPCAR to apply a one-input
+function to the elements of a list. MAPCAR is not restricted to one-input
+functions, however. Given a function of n inputs, MAPCAR will map it over
+n lists. For example, given a list of people and a list of jobs, we can use
+MAPCAR with a two-input function to pair each person with a job:
+> (mapcar #’(lambda (x y) (list x ’gets y))
+    ’(fred wilma george diane)
+    ’(job1 job2 job3 job4))
+((FRED GETS JOB1)
+(WILMA GETS JOB2)
+(GEORGE GETS JOB3)
+(DIANE GETS JOB4))
+MAPCAR goes through the two lists in parallel, taking one element from
+each at each step. If one list is shorter than the other, MAPCAR stops when it
+reaches the end of the shortest list.
+Another example of operating on multiple lists is the problem of adding
+two lists of numbers pairwise:
+> (mapcar #’+ ’(1 2 3 4 5) ’(60 70 80 90 100))
+(61 72 83 94 105)
+> (mapcar #’+ ’(1 2 3) ’(10 20 30 40 50))
+(11 22 33)
+
+
+7.12 THE FUNCTION SPECIAL FUNCTION
+The result returned by FUNCTION is always some kind of function object.
+These objects are a form of data, just like symbols and lists. For example, we
+can store them in variables. We can also call them, using FUNCALL or
+APPLY. (APPLY was discussed in Advanced Topics section 3.21.)
+> (setf g #’(lambda (x) (* x 10)))
+#<Lexical-closure 41653824>
+> (funcall g 12)
+120
+
+The value of the variable G is a lexical closure, which is a function. But G
+itself is not the name of any function; if we wrote (G 12) we would get an
+undefined function error.
+
+
+7.13 KEYWORD ARGUMENTS TO APPLICATIVE OPERATORS
+
+Some applicative operators, such as FIND-IF, REMOVE-IF, REMOVE-IF-
+NOT, and REDUCE, accept optional keyword arguments. For example, the
+:FROM-END keyword, if given a non-NIL value, causes the list to be
+processed from right to left.
+> (find-if #’oddp ’(2 3 4 5 6)) Find the first odd number.
+3
+> (find-if #’oddp ’(2 3 4 5 6) Find the last odd number.
+:from-end t)
+5
+
+
+See the online documentation or your Common Lisp reference manual for the complete list of
+keyword arguments accepted by a particular function. MAPCAR and EVERY
+do not accept any keyword arguments; they accept a variable number of lists
+instead.
+
+
+
