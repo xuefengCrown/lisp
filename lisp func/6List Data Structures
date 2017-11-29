@@ -1,0 +1,651 @@
+
+6.1 INTRODUCTION
+This chapter presents more list-manipulation functions, and shows how lists
+are used to implement such other data structures as sets, tables, and trees.
+Common Lisp offers many built-in functions that support these data structures.
+This is one of the strengths of Lisp compared to other languages. A Lisp
+programmer can immediately concentrate on the problem he or she wants to
+solve. 
+A Pascal or C programmer faced with the same problem must first go
+off and implement parts of a Lisp-like system, such as linked list primitives,
+symbolic data structures, a storage allocator, and so on, before getting to work
+on the real problem.
+
+
+6.2 PARENTHESIS NOTATION VS. CONS CELL NOTATION
+
+(cons ’w ’(x y z)) ⇒ (w x y z)
+why can’t it add a symbol to the end of a list? Beginners who try this are
+surprised by the result:
+(cons ’(a b c) ’d) ⇒ ((a b c) . d)
+
+There is no direct way to add an element to the end of a list simply by
+creating a new cons cell, because the end of the original list already points to
+NIL.  More sophisticated techniques must be used. One of these is
+demonstrated in the next section.
+
+6.3 THE APPEND FUNCTION
+APPEND takes two lists as input; it returns a list containing all the elements of
+the first list followed by all the elements of the second. *
+> (append ’(friends romans) ’(and countrymen))
+(FRIENDS ROMANS AND COUNTRYMEN)
+> (append ’(l m n o) ’(p q r))
+(L M N O P Q R)
+
+APPEND works on nested lists too. It only looks at the top level of each
+cons cell chain, so it doesn’t notice if a list is nested or not.
+> (append ’((a 1) (b 2)) ’((c 3) (d 4)))
+((A 1) (B 2) (C 3) (D 4))
+APPEND does not change the value of any variable or modify any existing
+cons cells. For this reason, it is called a nondestructive function.
+> (setf who ’(only the good))
+(ONLY THE GOOD)
+> (append who ’(die young))
+(ONLY THE GOOD DIE YOUNG)
+> who
+(ONLY THE GOOD) The value of WHO is unchanged.
+
+
+(append ’a ’(b c d)) ⇒ Error! A is not a list.
+(append ’(w x y) ’z) ⇒ (W X Y . Z)
+
+(append ’(a b c) ’(d)) ⇒ (A B C D)
+
+6.4 COMPARING CONS, LIST, AND APPEND
+
+Beginninng Lispers often have trouble distinguishing among CONS, LIST,
+and APPEND, since all three functions are used to build list structures. Here
+is a brief review of what each function does and when it should be used:
+• CONS creates one new cons cell. It is often used to add an
+element to the front of a list.
+• LIST makes new lists by accepting an arbitrary number of inputs
+and building a chain of cons cells ending in NIL. The car of each
+cell points to the corresponding input.
+• APPEND appends lists together by copying its first input and
+making the cdr of the last cell of the copy point to the second
+input. It is an error for the first input to APPEND to be a non-list.
+
+Now let’s try some examples for comparison. First, consider the case
+where the first input is a symbol and the second input a list:
+  > (cons ’rice ’(and beans))
+  (RICE AND BEANS)
+  > (list ’rice ’(and beans))
+  (RICE (AND BEANS))
+  > (append ’rice ’(and beans))
+Error: RICE is not a list.
+Next, let’s see what happens when both inputs are lists:
+  > (cons ’(here today) ’(gone tomorrow))
+  ((HERE TODAY) GONE TOMORROW)
+  > (list ’(here today) ’(gone tomorrow))
+  ((HERE TODAY) (GONE TOMORROW))
+  > (append ’(here today) ’(gone tomorrow))
+  (HERE TODAY GONE TOMORROW)
+
+Finally, let’s try making the first input a list and the second input a symbol.
+This is the trickiest case to understand; you must think in terms of cons cells
+rather than parentheses and dots.
+  > (cons ’(eat at) ’joes)
+  ((EAT AT) . JOES)
+  > (list ’(eat at) ’joes)
+  ((EAT AT) JOES)
+  > (append ’(eat at) ’joes)
+  (EAT AT . JOES)
+
+6.5 MORE FUNCTIONS ON LISTS
+Lisp provides many simple functions for operating on lists. We’ve already
+discussed CONS, LIST, APPEND, and LENGTH. Now we will cover
+REVERSE, NTH, NTHCDR, LAST, and REMOVE. Some of these functions
+must copy their first input, while others don’t have to. See if you can figure
+out the reason for this.
+
+6.5.1 REVERSE
+REVERSE returns the reversal of a list.
+> (reverse ’(one two three four five))
+(FIVE FOUR THREE TWO ONE)
+
+> (reverse ’((my oversight)
+              (your blunder)
+              (his negligence)))
+((HIS NEGLIGENCE) (YOUR BLUNDER) (MY OVERSIGHT))
+
+## REVERSE 不修改该list
+Notice that REVERSE reverses only the top level of a list. It does not
+reverse the individual elements of a list of lists. Another point about
+REVERSE is that it doesn’t work on symbols. REVERSE of the list (L I V E)
+gives the list (E V I L), but REVERSE of the symbol LIVE gives a wrong-
+type input error.
+Like APPEND, REVERSE is nondestructive. It copies its input rather than
+modifying it.
+  > (setf vow ’(to have and to hold))
+  (TO HAVE AND TO HOLD)
+  > (reverse vow)
+  (HOLD TO AND HAVE TO)
+  > vow
+  (TO HAVE AND TO HOLD)
+
+We can use REVERSE to add an element to the end of a list, as follows.
+Suppose we want to add D to the end of the list (A B C). The reverse of (A B
+C) is (C B A). If we cons D onto that we get (D C B A). Then, reversing the
+result of CONS gives (A B C D).
+  (defun add-to-end (x y)
+      (reverse (cons y (reverse x))))
+  (add-to-end ’(a b c) ’d) ⇒ (a b c d)
+
+Now you know two ways to add an element to the end of a list. The
+APPEND solution is considered better style than the double REVERSE
+solution because the latter makes two copies of the list. APPEND is more
+efficient. Efficiency issues are further discussed in an Advanced Topics
+section at the end of this chapter.
+
+
+6.5.2 NTH and NTHCDR
+The NTHCDR function returns the nth successive cdr of a list. Of course, if
+we take zero cdrs we are left with the list itself. If we take one too many cdrs,
+we end up with the atom that terminates the cons cell chain, which usually is
+NIL.
+(nthcdr 0 ’(a b c)) ⇒ (a b c)
+(nthcdr 1 ’(a b c)) ⇒ (b c)
+
+(nthcdr 2 ’(a b c)) ⇒ (c)
+(nthcdr 3 ’(a b c)) ⇒ nil
+Using inputs greater than 3 does not cause an error; we simply get the same
+result as for 3. This is one of the consequences of making the cdr of NIL be
+NIL.
+(nthcdr 4 ’(a b c)) ⇒ nil
+(nthcdr 5 ’(a b c)) ⇒ nil
+
+
+The NTH function takes the CAR of the NTHCDR of a list.
+(defun nth (n x)
+"Returns the Nth element of the list X,
+counting from 0."
+(car (nthcdr n x)))
+
+(nth 0 ’(a b c)) ⇒ a
+(nth 1 ’(a b c)) ⇒ b
+(nth 2 ’(a b c)) ⇒ c
+(nth 3 ’(a b c)) ⇒ nil
+
+6.5.3 LAST
+LAST returns the last cons cell of a list, in other words, the cell whose car is
+the list’s last element. By definition, the cdr of this cell is an atom; otherwise
+it wouldn’t be the last cell of the list. If the list is empty, LAST just returns
+NIL.
+(last ’(all is forgiven)) ⇒ (forgiven)
+(last nil) ⇒ nil
+(last ’(a b c . d)) ⇒ (c . d)
+(last ’nevermore) ⇒ Error! NEVERMORE is not a list.
+
+6.5.4 REMOVE
+REMOVE removes an item from a list. Normally it removes all occurrences
+of the item, although there are ways to tell it to remove only some (see the
+Advanced Topics section). The result returned by REMOVE is a new list,
+without the deleted items.
+(remove ’a ’(b a n a n a)) ⇒ (b n n)
+(remove 1 ’(3 1 4 1 5 9)) ⇒ (3 4 5 9)
+
+REMOVE is a nondestructive function. It does not change any variables or
+cons cells when removing elements from a list. REMOVE builds its result out
+of fresh cons cells by copying (parts of) the list.
+> (setf spell ’(a b r a c a d a b r a))
+(A B R A C A D A B R A)
+> (remove ’a spell)
+(B R C D B R)
+> spell
+(A B R A C A D A B R A)
+
+
+APPEND, REVERSE, and REMOVE return a new
+cons cell chain that is not contained in their input, so they must copy their
+input to produce the new chain. Functions such as NTHCDR, NTH, and
+LAST return a pointer to some component of their input. They do not need to
+copy anything because, by definition, the exact object they want to return
+already exists.
+
+
+6.6 LISTS AS SETS
+A set is an unordered collection of items. Each item appears only once in the
+set. Some typical sets are the set of days of the week, the set of integers (an
+infinite set), and the set of people in Hackensack, New Jersey, who had
+spaghetti for dinner last night.
+Sets are undoubtedly one of the more useful data structures one can build
+from lists. The basic set operations are testing if an item is a member of a set;
+taking the union, intersection, and set difference (also called set subtraction)
+of two sets; and testing if one set is a subset of another. The Lisp functions
+for all these operations are described in the following subsections.
+
+6.6.1 MEMBER
+The MEMBER predicate checks whether an item is a member of a list. If the
+item is found in the list, the sublist beginning with that item is returned.
+Otherwise NIL is returned. MEMBER never returns T, but by tradition it is
+counted as a predicate because the value it returns is non-NIL (hence true) if
+and only if the item is in the list.
+
+Here’s an example of why it is useful for MEMBER to return a sublist.
+The BEFOREP predicate returns a true value if x appears earlier than y in the
+list l.
+(defun beforep (x y l)
+"Returns true if X appears before Y in L"
+(member y (member x l)))
+> (beforep 'not whom
+  '(ask not for whom the bell tolls))
+(WHOM THE BELL TOLLS)
+> (beforep ’thee ’tolls ’(it tolls for thee))
+NIL
+
+6.6.2 INTERSECTION
+The INTERSECTION function takes the intersection of two sets and returns a
+list of items appearing in both sets. The exact order in which elements appear
+in the result is undefined; it may differ from one Lisp implementation to
+another. Order isn’t important for sets anyway; only the elements themselves
+matter.
+
+6.6.3 UNION
+The UNION function returns the union of two sets, in other words, a list of
+items that appear in either set. If an item appears in both sets, it will still
+appear only once in the result. The exact order in of items in the result is
+undefined (and unimportant) for sets.
+
+6.6.4 SET-DIFFERENCE
+The SET-DIFFERENCE function performs set subtraction. It returns what is
+left of the first set when the elements in the second set have been removed.
+Again, the order of elements in the result is undefined.
+  > (set-difference ’(alpha bravo charlie delta)
+  ’(bravo charlie))
+  (ALPHA DELTA)
+  > (set-difference ’(alpha bravo charlie delta)
+  ’(echo alpha foxtrot))
+  (BRAVO CHARLIE DELTA)
+
+6.6.5 SUBSETP
+The SUBSETP predicate returns T if one set is contained in another, in other
+words, if every element of the first set is an element of the second set.
+(subsetp ’(a i) ’(a e i o u)) ⇒ t
+(subsetp ’(a x) ’(a e i o u)) ⇒ nil
+
+
+6.7 PROGRAMMING WITH SETS
+
+6.8 LISTS AS TABLES
+
+Tables are another very useful structure we can build from lists. A table, or
+association list (a-list for short), is a list of lists. Each list is called an entry,
+and the car of each entry is its key. A table of five English words and their
+French equivalents is shown below. The table contains five entries; the keys
+are the English words.
+(setf words
+  '((one un)
+    (two deux)
+    (three trois)
+    (four quatre)
+    (five cinq)))
+
+6.8.1 ASSOC
+The ASSOC function looks up an entry in a table, given its key. Here are
+some examples.
+(assoc ’three words) ⇒ (three trois)
+(assoc ’four words) ⇒ (four quatre)
+(assoc ’six words) ⇒ nil
+
+6.8.2 RASSOC
+RASSOC is like ASSOC, except it looks at the cdr of each element of the
+table instead of the car. (The name stands for ‘‘Reverse ASSOC.’’) To use
+RASSOC with symbols as keys, the table must be a list of dotted pairs, like
+this:
+(setf sounds
+’((cow . moo)
+(pig . oink)
+(cat . meow)
+(dog . woof)
+(bird . tweet)))
+(rassoc ’woof sounds) ⇒ (dog . woof)
+(assoc ’dog sounds) ⇒ (dog . woof)
+Both ASSOC and RASSOC return as soon as they find the first matching
+table entry; the rest of the list is not searched.
+
+6.9 PROGRAMMING WITH TABLES
+Here is another example of the use of ASSOC. We will create a table of
+objects and their descriptions, where the descriptions are similar to those in the
+last mini keyboard exercise. We’ll store the table of descriptions in the global
+variable THINGS. The table looks like this:
+    ((object1 large green shiny cube)
+    (object2 small red dull metal cube)
+    (object3 red small dull plastic cube)
+    (object4 small dull blue metal cube)
+    (object5 small shiny red four-sided pyramid)
+    (object6 large shiny green sphere))
+Now we’ll develop functions to tell us in which qualities two objects differ.
+We start by writing a function called DESCRIPTION to retrieve the
+description of an object:
+  (defun description (x)
+    (rest (assoc x things)))
+  (description ’object3) ⇒
+  (red small dull plastic cube)
+
+
+Here is a table, represented as a list of
+dotted pairs:
+(setf quality-table
+’((large  . size)
+(small  . size)
+(red  . color)
+(green  . color)
+(blue  . color)
+(shiny  . luster)
+(dull  . luster)
+(metal  . material)
+(plastic  . material)
+(cube  . shape)
+(sphere  . shape)
+(pyramid  . shape)
+(four-sided . shape)))
+We can use this table as part of a function that gives us the quality a given
+property refers to:
+(defun quality (x)
+(cdr (assoc x quality-table)))
+(quality ’red) ⇒ color
+(quality ’large) ⇒ size
+
+
+SUMMARY
+Lists are an important data type in their own right, but in Lisp they are even
+more important because they are used to implement other data structures such
+as sets and tables.
+
+
+
+Keyboard Exercise
+In this keyboard exercise we will write some routines for moving Robbie the
+robot around in a house. The map of the house appears in Figure 6-2. Robbie
+can move in any of four directions: north, south, east, or west.
+
+(setf rooms
+  '((living-room  (north front-stairs)
+                  (south dining-room)
+                  (east kitchen))
+    (upstairs-bedroom  (west library)
+                       (south front-stairs))
+    (dining-room  (north living-room)
+                  (east pantry)
+                  (west downstairs-bedroom))
+    (kitchen  (west living-room)
+              (south pantry))
+    (pantry  (north kitchen)
+             (west dining-room))
+    (downstairs-bedroom (north back-stairs)
+                        (east dining-room))
+    (back-stairs  (south downstairs-bedroom)
+                  (north library))
+    (front-stairs  (north upstairs-bedroom)
+                   (south living-room))
+    (library  (east upstairs-bedroom)
+              (south back-stairs))))
+
+
+(living-room
+  (north front-stairs)
+  (south dining-room)
+  (east kitchen))
+If Robbie were in the living room, going north would take him to the front
+stairs, going south would take him to the dining room, and going east would
+take him to the kitchen. Since there is nothing listed for west, we assume that
+there is a wall there, so Robbie cannot travel west from the living room.
+
+(defun choices (room-name)
+  (cdr (assoc room-name rooms)))
+
+(defun look (direction room-name)
+  (if (choices room-name)
+      (second (assoc direction (choices room-name)))
+       nil)
+
+
+
+6 Advanced Topics
+6.10 TREES
+Trees are nested lists. All the functions covered so far operate on the top level
+of a list; they do not look at any more of the structure than that. Lisp also
+includes a few functions that operate on the entire list structure. Two of these
+are SUBST and SUBLIS. In chapter 8 we will write many more functions that
+operate on trees.
+
+
+6.10.1 SUBST
+The SUBST function substitutes one item for another everywhere it appears in
+a list. It takes three inputs whose order is as in the phrase ‘‘substitute x for y in
+z.’’ Here is an example of substituting FRED for BILL in a certain list:
+> (subst 'fred 'bill
+        '(bill jones sent me an itemized
+        bill for the tires))
+        (FRED JONES SENT ME AN ITEMIZED
+        FRED FOR THE TIRES)
+        
+SUBST looks at the entire structure of the list, not just the top-level
+elements.
+
+
+6.10.2 SUBLIS
+SUBLIS is like SUBST, except it can make many substitutions
+simultaneously. The first input to SUBLIS is a table whose entries are dotted
+pairs. The second input is the list in which the substitutions are to be made.
+> (sublis '((roses . violets) (red . blue))
+      '(roses are red))
+(VIOLETS ARE BLUE)
+
+
+(setf dotted-words
+  '((one  . un)
+    (two  . deux)
+    (three . trois)
+    (four . quatre)
+    (five . cinq)))
+> (sublis dotted-words '(three one four one five))
+(TROIS UN QUATRE UN CINQ)
+
+6.11 EFFICIENCY OF LIST OPERATIONS
+
+At the beginning of the chapter we talked about how lists appear symmetric in
+parenthesis notation, but they really aren’t. Another way this asymmetry
+shows up is in the relative speed or efficiency of certain operations. For
+example, it is trivial to extract the first element of a list, but expensive to
+extract the last. When extracting the first element, we start with a pointer to
+the first cons cell; the FIRST function merely has to get the pointer from the
+car of that cell and return it. Finding the last element of the list involves much
+more work, because the only way to get to it is to follow the chain of pointers
+from the first cell until we get to a cell whose cdr is an atom. Only then can
+we look in the car. If the original list is very long, it may take quite a while to
+find the last cell by ''cdring down the list,'' as it is called.
+
+Computers can follow chains of a hundred thousand cons cells or more in
+well under a second, so you won’t normally notice the speed difference
+between FIRST and LAST if you are calling them from the top-level read-
+eval-print loop. But if you write a large program that involves many list
+operations, the difference will become noticeable.
+
+Another factor affecting the speed of a function is how much consing it
+does. Creating new cons cells takes time, and it also fills up the computer’s
+memory. Eventually some of these cells will be discarded, but they still take
+up space. In some Lisp implementations, memory can become completely full
+with useless cons cells, in which case the machine must stop temporarily and
+perform a garbage collection. The more consing a function does, the more
+frequent the garbage collections.
+
+Let’s compare the efficiency of these two versions of ADD-TO-END:
+(defun add-to-end-1 (x y)
+  (append x (list y)))
+(defun add-to-end-2 (x y)
+  (reverse (cons y (reverse x))))
+Suppose the first input to these functions is a list of n elements. ADD-TO-
+END-1 copies its first input using APPEND, which tacks the list containing
+the second input onto the end. It thus creates a total of n+1 cons cells. ADD-
+TO-END-2 begins by reversing its first input, which creates n new cons cells;
+it then conses the second input onto that, which makes one new cell; finally it
+reverses the result, which makes another n+1 new cells. So ADD-TO-END-2
+creates a total of n+1+(n+1) cons cells, of which the final n+1 form the
+result. The other n+1 are thrown away shortly after they are created; they
+become ''garbage.'' Clearly, ADD-TO-END-1 is the more efficient function,
+since it creates fewer cons cells.
+
+6.12 SHARED STRUCTURE
+
+For example, we can
+make X and Y point to lists that share some structure by doing the following:
+> (setf x ’(a b c))
+(A B C)
+> (setf y (cons ’d (cdr x)))
+(D B C)
+The value of X is (A B C) and the value of Y is (D B C). The lists share
+the same cons cell structure for (B C), as the following indicates. The sharing
+comes about because we built Y from (CDR X). If we had simply said (SETF
+Y ’(D B C)), no structure would be shared with X.
+
+
+6.13 EQUALITY OF OBJECTS
+
+the EQUAL function cannot compare lists by comparing their
+addresses, because (A B C) and (A B C) are equal even if they are distinct
+cons cell chains. EQUAL therefore compares lists element by element. If the
+corresponding elements of two lists are equal, then the lists themselves are
+considered equal.
+
+If we want to tell whether two pointers point to the same object, we must
+compare their addresses. The EQ predicate (pronounced ''eek'') does this.
+Lists are EQ to each other only if they have the same address; no element by
+element comparison is done.
+> (eq x1 x2) The two lists are not EQ.
+NIL
+
+> (setf z x1) Now Z points to the same list as X1.
+(A B C)
+> (eq z x1) So Z and X1 are EQ.
+T
+> (eq z '(a b c)) These lists have different addresses.
+NIL
+> (equal z '(a b c)) But they have the same elements.
+T
+
+The EQL predicate is a slightly more general variant of EQ. It compares
+the addresses of objects like EQ does, except that for two numbers of the same
+type (for example, both integers), it will compare their values instead.
+Numbers of different types are not EQL, even if their values are the same.
+(eql 'foo 'foo) ⇒ t
+(eql 3 3) ⇒ t
+(eql 3 3.0) ⇒ nil Different types.
+
+EQL is the ''standard'' comparison predicate in Common Lisp. Functions
+such as MEMBER and ASSOC that contain implicit equality tests do them
+using EQL unless told to use some other predicate.
+
+
+= 用来进行比较数字值是否相等
+For comparing numbers of disparate(不同的；不相干的；) types, there is yet another equality
+predicate called =. This predicate is the most efficient way to compare two
+numbers. It is an error to give it any other kind of input.
+(= 3 3.0) ⇒ t
+(= 'foo 'foo) ⇒ Error! FOO is not a number.
+
+Finally, the EQUALP predicate is similar to EQUAL, but in a few ways
+more liberal. One example is ignoring case distinctions in strings.
+(equal "foo bar" "Foo BAR") ⇒ nil
+(equalp "foo bar" "Foo BAR") ⇒ t
+
+比较 汇总
+
+Beginners are frequently confused by the profusion of equality tests in
+Common Lisp. I recommend forgetting about all of these specialized
+functions; just remember two bits of advice. First, use EQUAL: It does what
+you want. Second, remember that built-in functions like MEMBER and
+ASSOC, which involve implicit equality tests, use EQL by default, for
+efficiency reasons. That means they will not compare lists correctly unless
+you tell them to use a different equality predicate. The next section explains
+how to do that. To summarize:
+• EQ is the fastest equality test: It compares addresses. Experts use
+it to compare symbols quickly, and to test whether two cons cells
+are physically the same object. It should not be used to compare
+numbers.
+• EQL is like EQ except it can safely compare numbers of the same
+type, such as two integers or two floating point numbers. It is the
+default equality test in Common Lisp.
+• EQUAL is the predicate beginners should use. It compares lists
+element by element; otherwise it works like EQL.
+• EQUALP is more liberal than EQUAL: It ignores case distinctions
+in strings, among other things.
+• = is the most efficient way to compare numbers, and the only way
+to compare numbers of disparate types, such as 3 and 3.0. It only
+accepts numbers.
+
+
+6.14 KEYWORD ARGUMENTS
+Many Common Lisp functions that work on lists can take extra, optional
+arguments called keyword arguments. For example, the REMOVE function
+takes an optional argument called :COUNT that tells it how many instances of
+the item to remove.
+
+(setf text '(b a n a n a - p a n d a))
+> (remove 'a text) Remove all As.
+(B N N - P N D)
+> (remove 'a text :count 3) Remove 3 As.
+(B N N - P A N D A)
+
+Remove also accepts a :FROM-END keyword. If its value is non-NIL,
+then REMOVE starts from the end of the list instead of from the beginning.
+So, to remove the last two As in the list, we could write:
+> (remove ’a text :count 2 :from-end t)
+(B A N A N A - P N D)
+
+A keyword is a special type of symbol whose name is always preceded by
+a colon. The symbols COUNT and :COUNT are not the same; they are
+different objects and not EQ to each other. *** Keywords always evaluate to
+themselves, so they do not need to be quoted. It is an error to try to change the
+value of a keyword. The KEYWORDP predicate returns T if its input is a
+keyword.
+:count ⇒ :count
+(symbolp :count) ⇒ t
+(equal :count 'count) ⇒ nil
+(keywordp 'count) ⇒ nil
+(keywordp :count) ⇒ t
+
+
+Another function that takes keyword arguments is MEMBER. Normally,
+MEMBER uses EQL to test whether an item appears in a set. EQL will work
+correctly for both symbols and numbers. But suppose our set contains lists?
+In that case we must use EQUAL for the equality test, or else MEMBER
+won’t find the item we’re looking for:
+(setf cards
+      '((3 clubs) (5 diamonds) (ace spades)))
+(member '(5 diamonds) cards) ⇒ nil
+(second cards) ⇒ (five diamonds)
+
+(eql (second cards) '(5 diamonds)) ⇒ nil
+(equal (second cards) '(5 diamonds)) ⇒ t
+
+
+The :TEST keyword can be used with MEMBER to specify a different
+function for the equality test. We write #'EQUAL to specially quote the
+function for use as an input to MEMBER.
+> (member ’(5 diamonds) cards :test #’equal)
+((5 DIAMONDS) (ACE SPADES))
+
+All list functions that include equality tests accept a :TEST keyword
+argument. REMOVE is another example. We can’t remove (5 DIAMONDS)
+from CARDS unless we tell REMOVE to use EQUAL for its equality test.
+> (remove ’(5 diamonds) cards)
+((3 CLUBS) (5 DIAMONDS) (ACE SPADES))
+> (remove ’(5 diamonds) cards :test #’equal)
+((3 CLUBS) (ACE SPADES))
+
+Other  functions  that  accept  a  :TEST  keyword  are  UNION,
+INTERSECTION, SET-DIFFERENCE, ASSOC, RASSOC, SUBST, and SUBLIS. 
+To find out which keywords a function accepts, use the online
+documentation. It is an error to supply a keyword to a function that isn’t
+expecting that keyword.
+> (remove ’(ace spades) cards :reason ’bad-luck)
+Error! :REASON is an invalid keyword argument
+to REMOVE.
+
+
+
+
+
+
+
