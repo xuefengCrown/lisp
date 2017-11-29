@@ -1,0 +1,75 @@
+# Variables and Side Effects
+
+5.3 SETF ASSIGNS A VALUE TO A VARIABLE
+
+5.4 SIDE EFFECTS
+
+When a function body contains more than one form,
+it evaluates all of them and returns the value of the last one.
+
+5.5 THE LET SPECIAL FUNCTION
+So far, the only local variables we’ve seen have been those created by calling
+user-defined functions, such as DOUBLE or AVERAGE. Another way to
+create a local variable is with the LET special function.
+
+The right way to read a LET form such as
+(let ((x 2)
+      (y ’aardvark))
+  (list x y))
+is to say ‘‘Let X be 2, and Y be AARDVARK; return (LIST X Y).’’ The
+general syntax of LET is:
+(LET ((var-1 value-1)
+      (var-2 value-2)
+      ...
+      (var-n value-n))
+  body)
+  
+
+5.7 SIDE EFFECTS CAN CAUSE BUGS
+???
+cond的每个分支都执行吗？
+
+
+Lisp Toolkit: DOCUMENTATION and APROPOS
+
+(defun average (x y)
+  "Returns the mean (average value) of its two
+  inputs."
+  (/ (+ x y) 2.0))
+> (documentation ’average ’function)
+"Returns the mean (average value) of its two
+inputs."
+
+
+5 Advanced Topics
+5.8 SYMBOLS AND VALUE CELLS
+Common Lisp determines whether a symbol refers to a function or a
+variable based on the context in which it appears. 
+
+5.9 DISTINGUISHING LOCAL FROM GLOBAL VARIABLES
+By now it should be clear that symbols are not variables; they serve as names
+for variables (and for functions too.) Exactly which variable a symbol refers
+to depends on the context in which it appears.
+
+
+The rule for evaluating the symbol X in the body of NEWVAR is to start in
+the current lexical context and move outward, looking for a variable with the
+given name. Since there is a variable named X in the current context, its
+value, WHOOPIE, is used. EVAL never looks at the global variable X.
+
+
+5.10 BINDING, SCOPING, AND ASSIGNMENT
+
+
+
+
+
+
+
+
+
+
+
+
+
+
