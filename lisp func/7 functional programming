@@ -237,4 +237,72 @@ do not accept any keyword arguments; they accept a variable number of lists
 instead.
 
 
+7.14 SCOPING AND LEXICAL CLOSURES
+Recall the MY-ASSOC example from section 7.7. Since the lambda
+expression is passed to FIND-IF and called from inside the body of FIND-IF,
+how is it possible for it to refer to the local variables of MY-ASSOC? Why is
+it unable to see the local variables, if any, of FIND-IF itself?
+(defun my-assoc (key table)
+	(find-if #’(lambda (entry)
+			(equal key (first entry)))
+		table))
+First, it is important to remember that what is passed to FIND-IF is not the
+raw lambda expression, but rather a lexical closure created by FUNCTION
+(abbreviated as #’). The closure remembers its lexical environment. 
+
+The scope rule for closures is that any variable not local to the closure is
+looked up in the closure’s parent context. Every lexical context has a parent
+context. The thick solid lines we’ve been using for the bodies of functions like
+MY-ASSOC and FIND-IF denote lexical contexts whose parent is the global
+context. That’s why when EVAL hits one of these thick lines while looking
+up a variable, it immediately looks for a global variable with that name.
+
+Suppose we wrote a function FAULTY-ASSOC that replaced the lambda
+expression with an independent function called HELPER:
+(defun helper (entry)
+	(equal key (first entry)))
+	
+(defun faulty-assoc (key table)
+	(find-if #’helper table))
+Since HELPER is defined at top level, its parent lexical context is the global
+context, not FAULTY-ASSOC’s context. Therefore it will be unable to refer
+to FAULTY-ASSOC’s local variables. 
+
+
+7.15 WRITING AN APPLICATIVE OPERATOR
+
+Using FUNCALL, we can write our own applicative operator that takes a
+function as input. 
+Our operator will be called INALIENABLE-RIGHTS. It
+applies its input to a particular list, drawn from the American Declaration of
+Independence.
+(defun inalienable-rights (fn)
+(funcall fn
+’(life liberty and the pursuit of happiness)))
+> (inalienable-rights #’length)
+7
+> (inalienable-rights #’reverse)
+(HAPPINESS OF PURSUIT THE AND LIBERTY LIFE)
+> (inalienable-rights #’first)
+LIFE
+> (inalienable-rights #’rest)
+(LIBERTY AND THE PURSUIT OF HAPPINESS)
+
+
+7.16 FUNCTIONS THAT MAKE FUNCTIONS
+
+It is possible to write a function whose value is another function. 
+
+(defun make-greater-than-predicate (n)
+	#’(lambda (x) (> x n)))
+The value returned by MAKE-GREATER-THAN-PREDICATE will be a
+lexical closure. We can store this value away somewhere, or pass it as an
+argument to FUNCALL or any applicative operator.
+> (setf pred (make-greater-than-predicate 3))
+#<Lexical-closure 7315225>
+(funcall pred 2) ⇒ nil
+(funcall pred 5) ⇒ t
+(find-if pred ’(2 3 4 5 6 7 8 9)) ⇒ 4
+
+
 
