@@ -1,0 +1,103 @@
+#6.6 示例：函数构造器 (Example: Function Builders)
+
+Dylan 是 Common Lisp 与 Scheme 的混合物，有着 Pascal 一般的语法。
+它有着大量返回函数的函数：除了上一节我们所看过的 complement ，
+Dylan 包含: compose 、 disjoin 、 conjoin 、 curry 、 rcurry 以及 always 。
+
+(defun compose (&rest fns)
+  (destructuring-bind (fn1 . rest) (reverse fns)
+    #'(lambda (&rest args)
+        (reduce #'(lambda (v f) (funcall f v))
+                rest
+                :initial-value (apply fn1 args)))))
+;;;
+* (funcall #'+ 1 2 3 4)
+
+10
+* (apply #'+ '(1 2 3 4 5))
+
+15
+;;;
+;;;
+destructuring-bind 宏是通用化的 let 。其接受单一变量，
+一个模式 (pattern) ── 一个或多个变量所构成的树 ── 并将它们与某个实际的树所对应的部份做绑定。举例来说：
+> (destructuring-bind (w (x y) . z) '(a (b c) d e)
+    (list w x y z))
+(A B C (D E))
+;;;
+这代表着 compose 的最后一个实参，可以是任意长度，但其它函数只能接受一个实参。
+
+下面我们建构了一个函数，先给取参数的平方根，取整后再放回列表里，接着返回:
+
+> (mapcar (compose #'list #'round #'sqrt)
+          '(4 9 16 25))
+((2) (3) (4) (5))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun disjoin (fn &rest fns)
+  (if (null fns)
+      fn
+      (let ((disj (apply #'disjoin fns)))
+        #'(lambda (&rest args)
+            (or (apply fn args) (apply disj args))))))
+
+(defun conjoin (fn &rest fns)
+  (if (null fns)
+      fn
+      (let ((conj (apply #'conjoin fns)))
+        #'(lambda (&rest args)
+            (and (apply fn args) (apply conj args))))))
+
+接下来的两个函数， disjoin 及 conjoin 同接受一个或多个谓词作为参数： disjoin 当任一谓词返回真时，返回真，
+而 conjoin 当所有谓词返回真时，返回真。
+> (mapcar (disjoin #'integerp #'symbolp)
+          '(a "a" 2 3))
+(T NIL T T)
+> (mapcar (conjoin #'integerp #'symbolp)
+          '(a "a" 2 3))
+(NIL NIL NIL T)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+若考虑将谓词定义成集合， disjoin 返回传入参数的联集（union），而 conjoin 则是返回传入参数的交集（intersection）。
+
+      cddr = (compose #'cdr #'cdr)
+      nth  = (compose #'car #'nthcdr)
+      atom = (compose #'not #'consp)
+           = (rcurry #'typep 'atom)
+        <= = (disjoin #'< #'=)
+     listp = (disjoin #'< #'=)
+           = (rcurry #'typep 'list)
+        1+ = (curry #'+ 1)
+           = (rcurry #'+ 1)
+        1- = (rcurry #'- 1)
+    mapcan = (compose (curry #'apply #'nconc) #'mapcar
+complement = (curry #'compose #'not)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun curry (fn &rest args)
+  #'(lambda (&rest args2)
+      (apply fn (append args args2))))
+
+(defun rcurry (fn &rest args)
+  #'(lambda (&rest args2)
+      (apply fn (append args2 args))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+函数 curry 与 rcurry （“right curry”）精神上与前一小节的 make-adder 相同。
+两者皆接受一个函数及某些参数，并返回一个期望剩余参数的新函数。下列任一个函数等同于 (make-adder 3) :
+(curry #'+ 3)
+(rcurry #'+ 3)
+
+当函数的参数顺序重要时，很明显可以看出 curry 与 rcurry 的差别。如果我们 curry #'- ，我们得到一个用其参数减去某特定数的函数，
+(funcall (curry #'- 3) 2)
+1
+而当我们 rcurry #'- 时，我们得到一个用某特定数减去其参数的函数:
+(funcall (rcurry #'- 3) 2)
+-1
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun always (x) #'(lambda (&rest args) x))
+
+??????不理解 always 的用处??????
+最后， always 函数是 Common Lisp 函数 constantly 。接受一个参数并原封不动返回此参数的函数。
+和 identity 一样，在很多需要传入函数参数的情况下很有用。
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
