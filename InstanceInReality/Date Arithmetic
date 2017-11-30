@@ -1,0 +1,130 @@
+# 5.7 示例：日期运算 (Example: Date Arithmetic)
+在某些应用里，能够做日期的加减是很有用的 ── 举例来说，能够算出从 1997 年 12 月 17 日，六十天之后是 1998 年 2 月 15 日。
+在这个小节里，我们会编写一个实用的工具来做日期运算。我们会将日期转成整数，起始点设置在 2000 年 1 月 1 日。
+我们会使用内置的 + 与 - 函数来处理这些数字，而当我们转换完毕时，再将结果转回日期。
+
+要将日期转成数字，我们需要从日期的单位中，算出总天数有多少。举例来说，2004 年 11 月 13 日的天数总和，
+是从起始点至 2004 年有多少天，加上从 2004 年到 2004 年 11 月有多少天，再加上 13 天。
+
+有一个我们会需要的东西是，一张列出非润年每月份有多少天的表格。我们可以使用 Lisp 来推敲出这个表格的内容。我们从列出每月份的长度开始：
+
+> (setf mon '(31 28 31 30 31 30 31 31 30 31 30 31))
+(31 28 31 30 31 30 31 31 30 31 30 31)
+我们可以通过应用 + 函数至这个列表来测试总长度：
+
+> (apply #'+ mon)
+365
+
+现在如果我们反转这个列表并使用 maplist 来应用 + 函数至每下一个 cdr 上，我们可以获得从每个月份开始所累积的天数：
+> (setf nom (reverse mon))
+(31 30 31 30 31 31 30 31 30 31 28 31)
+> (setf sums (maplist #'(lambda (x)
+                          (apply #'+ x))
+                      nom))
+(365 334 304 273 243 212 181 151 120 90 59 31)
+(从右向左)这些数字体现了从二月一号开始已经过了 31 天，从三月一号开始已经过了 59 天……等等。
+;;; maplist
+maplist is like mapcar except that function is applied to successive sublists of the lists. 
+function is first applied to the lists themselves, and then to the cdr of each list, 
+and then to the cdr of the cdr of each list, and so on.
+
+;;; 转换日期至数字，起始点设置在 2000 年 1 月 1 日。
+
+(defconstant month
+  #(0 31 59 90 120 151 181 212 243 273 304 334 365))
+
+(defconstant yzero 2000)
+
+;;; 是否闰年。代码严格的反映处理逻辑，这逻辑是能够用自然语言表达的。
+(defun leap? (y)
+  (and (zerop (mod y 4))
+       (or (zerop (mod y 400))
+           (not (zerop (mod y 100))))))
+
+(defun date->num (d m y)
+  (+ (- d 1) (month-num m y) (year-num y)))
+
+;;; (month-num 3 2000) 返回自本年1月1日至此月开始所经过的天数。
+(defun month-num (m y)
+  (+ (svref month (- m 1))
+     (if (and (> m 2) (leap? y)) 1 0)))
+
+(defun year-num (y)
+  (let ((d 0))
+    (if (>= y yzero)
+        (dotimes (i (- y yzero) d)
+          (incf d (year-days (+ yzero i))))
+        (dotimes (i (- yzero y) (- d))
+          (incf d (year-days (+ y i)))))))
+
+(defun year-days (y) (if (leap? y) 366 365))
+
+;;;
+
+;;; 下面这段话，我不是很理解。
+典型 Lisp 程序的生命周期有四个阶段：先写好，然后读入，接着编译，最后执行。
+有件 Lisp 非常独特的事情之一是，在这四个阶段时， Lisp 一直都在那里。
+可以在你的程序编译 (参见 10.2 小节)或读入时 (参见 14.3 小节) 来调用 Lisp。
+我们推导出 month 的过程演示了，如何在撰写一个程序时使用 Lisp。
+
+效率通常只跟第四个阶段有关系，运行期（run-time）。
+在前三个阶段，你可以随意的使用列表拥有的威力与灵活性，而不需要担心效率。
+
+
+;;; 相应的整数转换为日期
+(defun num->date (n)
+  (multiple-value-bind (y left) (num-year n)
+    (multiple-value-bind (m d) (num-month left y)
+      (values d m y))))
+
+(defun num-year (n)
+  (if (< n 0)
+      (do* ((y (- yzero 1) (- y 1))
+            (d (- (year-days y)) (- d (year-days y))))
+           ((<= d n) (values y (- n d))))
+      (do* ((y yzero (+ y 1))
+            (prev 0 d)
+            (d (year-days y) (+ d (year-days y))))
+           ((> d n) (values y (- n prev)))))) ;; d>n 时，结束迭代
+;;;
+(num-year 567)
+
+y 2000
+prev 0
+d 366
+
+y 2001
+prev 366
+d 366+365
+
+返回 (values 2001 (- 567 366))
+
+这也是为什么要使用 prev ， prev 在每次迭代时会存入 days 前次迭代的数值。
+;;;
+(defun num-month (n y)
+  (if (leap? y)
+      (cond ((= n 59) (values 2 29))
+            ((> n 59) (nmon (- n 1)))
+            (t        (nmon n)))
+      (nmon n)))
+
+(defun nmon (n)
+  (let ((m (position n month :test #'<)))
+    (values m (+ 1 (- n (svref month (- m 1)))))))
+
+(defun date+ (d m y n)
+  (num->date (+ (date->num d m y) n)))
+;;;
+但也有一个 do* ，它有着和 let 与 let* 一样的关系。任何 initial 或 update 形式可以参照到前一个子句的变量，并会获得当下的值：
+
+> (do* ((x 1 (+ x 1))
+      (y x x))
+     ((> x 5))
+  (format t "(~A ~A) " x y))
+(1 1) (2 2) (3 3) (4 4) (5 5)
+NIL
+;;;
+
+
+
+
