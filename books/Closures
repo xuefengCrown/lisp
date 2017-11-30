@@ -1,0 +1,55 @@
+# 6.5 闭包 (Closures)
+
+函数可以如表达式的值，或是其它对象那样被返回。以下是接受一个实参，并依其类型返回特定的结合函数：
+
+(defun combiner (x)
+  (typecase x
+    (number #'+)
+    (list #'append)
+    (t #'list)))
+在这之上，我们可以创建一个通用的结合函数:
+
+(defun combine (&rest args)
+  (apply (combiner (car args))
+         args))
+它接受任何类型的参数，并以适合它们类型的方式结合。（为了简化这个例子，我们假定所有的实参，都有着一样的类型。）
+
+> (combine 2 3)
+5
+> (combine '(a b) '(c d))
+(A B C D)
+
+;;;
+
+
+;;;
+
+我们可以产生共享变量的数个闭包。下面我们定义共享一个计数器的两个函数:
+
+(let ((counter 0))
+  (defun reset ()
+    (setf counter 0))
+  (defun stamp ()
+    (setf counter (+ counter 1))))
+这样的一对函数或许可以用来创建时间戳章（time-stamps）。
+每次我们调用 stamp 时，我们获得一个比之前高的数字，而调用 reset 我们可以将计数器归零:
+
+> (list (stamp) (stamp) (reset) (stamp))
+(1 2 0 1)
+你可以使用全局计数器来做到同样的事情，但这样子使用计数器，可以保护计数器被非预期的引用。
+
+Common Lisp 有一个内置的函数 complement 函数，接受一个谓词，并返回谓词的补数（complement）。比如：
+
+> (mapcar (complement #'oddp)
+          '(1 2 3 4 5 6))
+(NIL T NIL T NIL T)
+有了闭包以后，很容易就可以写出这样的函数：
+
+(defun our-complement (f)
+  #'(lambda (&rest args)
+      (not (apply f args))))
+如果你停下来好好想想，会发现这是个非凡的小例子；而这仅是冰山一角。闭包是 Lisp 特有的美妙事物之一。
+闭包开创了一种在别的语言当中，像是不可思议的程序设计方法。
+
+;;;
+??????
