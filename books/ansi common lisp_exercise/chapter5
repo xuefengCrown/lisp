@@ -1,0 +1,22 @@
+(precedes 'a '(abracadabra))
+
+;;> (precedes #\a "abracadabra")
+;;(#\c #\d #\r)
+(defun precedes (symbol slist)
+  (let ((pre (car slist)))
+    (dolist (x (rest slist) 'done)
+      (if (string-equal symbol x)
+	  (format t "~A " pre))
+      (setf pre x)
+	)
+    )
+  )
+
+(defun join (sym slist)
+  (cond
+   ((null slist) nil)
+   ((null (cdr slist)) (list (car slist)))
+   (t (cons (car slist) (cons sym (join sym (rest slist)))))
+   )
+  )
+ 
