@@ -1,0 +1,160 @@
+8.1 INTRODUCTION
+Because some instructors prefer to teach recursion as the first major control
+structure, this chapter and the preceding one may be taught in either order.
+They are independent.
+Recursion is one of the most fundamental and beautiful ideas in computer
+science. A function is said to be ‘‘recursive’’ if it calls itself. Recursive
+control structure is the main topic of this chapter, but we will also take a look
+at recursive data structures in the Advanced Topics section. The insight
+necessary to recognize the recursive nature of many problems takes a bit of
+practice to develop, but once you ‘‘get it,’’ you’ll be amazed at the interesting
+things you can do with just a three- or four-line recursive function.
+
+套路 模式
+8.12 VARIATIONS ON THE BASIC TEMPLATES
+The templates we’ve learned so far have many uses. Certain ways of using
+them are especially common in Lisp programming, and deserve special
+mention. In this section we’ll cover four variations on the basic templates.
+
+8.12.1 List-Consing Recursion
+List-consing recursion is used very frequently in Lisp. It is a special case of
+augmenting recursion where the augmentation function is CONS. As each
+recursive call returns, we create one new cons cell. Thus, the depth of the
+recursion is equal to the length of the resulting cons cell chain, plus one
+(because the last call returns NIL instead of a cons).
+
+8.12.2 Simultaneous Recursion on Several Variables
+Simultaneous recursion on multiple variables is a straightforward extension to
+any recursion template. Instead of having only one input, the function has
+several, and one or more of them is ‘‘reduced’’ with each recursive call.
+
+(defun my-nth (n x)
+  (cond ((zerop n) (first x))
+       (t (my-nth (- n 1) (rest x)))))
+
+8.12.3 Conditional Augmentation
+In some list-processing problems we want to skip certain elements of the list
+and use only the remaining ones to build up the result. This is known as
+conditional augmentation. For example, in EXTRACT-SYMBOLS, defined
+on the facing page, only elements that are symbols will be included in the
+result.
+
+;;;
+(defun extract-symbols (tlist)
+  (cond
+   ((null tlist) nil)
+   ((symbolp (first tlist))(cons (first tlist)
+				 (extract-symbols (rest tlist))))
+   (t (extract-symbols (rest tlist)))
+   )
+  )
+(extract-symbols '(3 bears and 1 girl))
+;;;
+
+
+8.12.4 Multiple Recursion
+A function is multiple recursive if it makes more than one recursive call with
+each invocation. (Don’t confuse simultaneous with multiple recursion. The
+former technique just reduces several variables simultaneously; it does not
+involve multiple recursive calls with each invocation.) The Fibonacci function
+is a classic example of multiple recursion. Fib(N) calls itself twice: once for
+Fib(N−1) and again for Fib(N−2). The results of the two calls are combined
+using +.
+
+
+8.13 TREES AND CAR/CDR RECURSION
+Sometimes we want to process all the elements of a nested list, not just the
+top-level elements. If the list is irregularly shaped, such as (((GOLDILOCKS
+. AND)) (THE . 3) BEARS), this might appear difficult. When we write our
+function, we won’t know how long or how deeply nested its inputs will be.
+
+Template:
+(DEFUN func (X)
+  (COND (end-test-1 end-value-1)
+        (end-test-2 end-value-2)
+        (T (combiner (func (CAR X))
+                     (func (CDR X))))))
+
+
+(defun find-number (x)
+  (cond ((numberp x) x)
+        ((atom x) nil)
+        (t (or (find-number (car x))
+               (find-number (cdr x))))))
+
+For example, suppose we want a function FIND-NUMBER to search a tree
+and return the first number that appears in it, or NIL if there are none. Then
+we should use NUMBERP and ATOM as our end tests and OR as the
+combiner.  (See the template in Figure 8-8.) Note that since OR is a
+conditional, as soon as one clause of the OR evaluates to true, the OR stops
+and returns that value. Thus we don’t have to search the whole tree; the
+function will stop recursing as soon as any call results in a non-NIL value.
+
+Besides tree searching, another common use for CAR/CDR recursion is to
+build trees by using CONS as the combiner. For example, here is a function
+that takes a tree as input and returns a new tree in which every non-NIL atom
+has been replaced by the symbol Q.
+(defun atoms-to-q (x)
+  (cond ((null x) nil)
+        ((atom x) ’q)
+        (t (cons (atoms-to-q (car x))
+                (atoms-to-q (cdr x))))))
+> (atoms-to-q ’(a . b))
+(Q . Q)
+> (atoms-to-q ’(hark (harold the angel) sings))
+(Q (Q Q Q) Q)
+
+
+EXERCISES
+8.38. What would be the effect of deleting the first COND clause in
+ATOMS-TO-Q?
+8.39. Write a function COUNT-ATOMS that returns the number of atoms in
+a tree. (COUNT-ATOMS ’(A (B) C)) should return five, since in
+addition to A, B, and C there are two NILs in the tree.
+8.40. Write COUNT-CONS, a function that returns the number of cons cells
+in a tree. (COUNT-CONS ’(FOO)) should return one. (COUNT-
+CONS ’(FOO BAR)) should return two. (COUNT-CONS ’((FOO)))
+should also return two, since the list ((FOO)) requires two cons cells.
+(COUNT-CONS ’FRED) should return zero.
+8.41. Write a function SUM-TREE that returns the sum of all the numbers
+appearing in a tree. Nonnumbers should be ignored. (SUM-TREE ’((3
+BEARS) (3 BOWLS) (1 GIRL))) should return seven.
+8.42. Write MY-SUBST, a recursive version of the SUBST function.
+8.43. Write FLATTEN, a function that returns all the elements of an
+arbitrarily nested list in a single-level list. (FLATTEN ’((A B (R)) A C
+(A D ((A (B)) R) A))) should return (A B R A C A D A B R A).
+8.44. Write a function TREE-DEPTH that returns the maximum depth of a
+binary tree. (TREE-DEPTH ’(A . B)) should return one. (TREE-
+DEPTH ’((A B C D))) should return five, and (TREE-DEPTH ’((A . B)
+. (C . D))) should return two.
+8.45. Write a function PAREN-DEPTH that returns the maximum depth of
+nested parentheses in a list. (PAREN-DEPTH ’(A B C)) should return
+one, whereas TREE-DEPTH would return three. (PAREN-DEPTH ’(A
+B ((C) D) E)) should return three, since there is an element C that is
+nested in three levels of parentheses. Hint: This problem can be solved
+by CAR/CDR recursion, but the CAR and CDR cases will not be
+exactly symmetric.
+
+
+8.14 USING HELPING FUNCTIONS
+For some problems it is useful to structure the solution as a helping function
+plus a recursive function. The recursive function does most of the work. The
+helping function is the one that you call from top level; it performs some
+special service either at the beginning or the end of the recursion. For
+example, suppose we want to write a function COUNT-UP that counts from
+one up to n:
+(count-up 5) ⇒ (1 2 3 4 5)
+(count-up 0) ⇒ nil
+This problem is harder than COUNT-DOWN because the innermost
+recursive call must terminate the recursion when the input reaches five (in the
+preceding example), not zero. In general, how will the function know when to
+stop? The easiest way is to supply the original value of N to the recursive
+function so it can decide when to stop. We must also supply an extra
+argument: a counter that tells the function how far along it is in the recursion.
+The job of the helping function is to provide the initial value for the counter.
+(defun count-up (n)
+  (count-up-recursively 1 n))
+  
+  
+
+
