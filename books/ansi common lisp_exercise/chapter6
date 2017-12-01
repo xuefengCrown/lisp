@@ -1,0 +1,36 @@
+#Chapter 6 练习 (Exercises)
+
+1.定义一个 tokens 版本 (67 页)，接受 :test 与 :start 参数，缺省分别是 #'constituent 与 0 。(译注: 67 页在 4.5 小节)
+
+
+2.定义一个 bin-search (60 页)的版本，接受 :key , :test , start 与 end 参数，有着一般的意义与缺省值。(译注: 60 页在 4.1 小节)
+3.定义一个函数，接受任何数目的参数，并返回传入的参数。
+
+4.修改 most 函数 (105 页)，使其返回 2 个数值，一个列表中最高分的两个元素。(译注: 105 页在 6.4 小节)
+
+5.用 filter (105 页) 来定义 remove-if （没有关键字）。(译注: 105 页在 6.4 小节)
+(defun xf-remove-if (test slist)
+  (filter #'(lambda (x)
+	      (and (funcall test x) x))
+	  slist)
+  
+(defun filter (fn lst)
+  (let ((acc nil))
+    (dolist (x lst)
+      (let ((val (funcall fn x)))
+        (if val (push val acc))))
+    (nreverse acc)))
+    
+6.定义一个函数，接受一个参数丶一个数字，并返回目前传入参数中最大的那个。
+
+7.定义一个函数，接受一个参数丶一个数字，若传入参数比上个参数大时，返回真。函数第一次调用时应返回 nil 。
+
+8.假设 expensive 是一个接受一个参数的函数，一个介于 0 至 100 的整数（包含 100)，返回一个耗时的计算结果。
+定义一个函数 frugal 来返回同样的答案，但仅在没见过传入参数时调用 expensive 。
+
+9.定义一个像是 apply 的函数，但在任何数字印出前，缺省用 8 进制印出。
+
+
+
+
+
