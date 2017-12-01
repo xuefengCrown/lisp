@@ -1,0 +1,140 @@
+# 7.4 示例：字符串代换 (Example: String Substitution)
+作为一个 I/O 的示例，本节演示如何写一个简单的程序来对文本文件做字符串替换。
+我们即将写一个可以将一个文件中，旧的字符串 old 换成某个新的字符串 new 的函数。
+
+最简单的实现方式是将输入文件里的每一个字符与 old 的第一个字符比较。如果没有匹配，我们可以直接印出该字符至输出。
+如果匹配了，我们可以将输入的下一个字符与 old 的第二个字符比较，等等。
+如果输入字符与 old 完全相等时，我们有一个成功的匹配，则我们印出 new 至文件。
+
+而要是 old 在匹配途中失败了，会发生什么事呢？举例来说，假设我们要找的模式 (pattern)是 "abac" ，
+而输入文件包含的是 "ababac" 。输入会一直到第四个字符才发现不匹配，也就是在模式中的 c 以及输入的 b 才发现。
+在此时我们可以将原本的 a 写至输出文件，因为我们已经知道这里没有匹配。
+但有些我们从输入读入的字符还是需要留着: 举例来说，第三个 a ，确实是成功匹配的开始。
+所以在我们要实现这个算法之前，我们需要一个地方来储存，我们已经从输入读入的字符，但之后仍然需要的字符。
+
+一个暂时储存输入的队列 (queue)称作缓冲区 (buffer)。在这个情况里，因为我们知道我们不需要储存超过一个预定的字符量，
+我们可以使用一个叫做环状缓冲区 ring buffer 的资料结构。一个环状缓冲区实际上是一个向量。
+是使用的方式使其成为环状: 我们将之后的元素所输入进来的值储存起来，而当我们到达向量结尾时，我们重头开始。
+如果我们不需要储存超过 n 个值，则我们只需要一个长度为 n 或是大于 n 的向量，这样我们就不需要覆写正在用的值。
+
+在图 7.1 的代码，实现了环状缓冲区的操作。 buf 有五个字段 (field): 一个包含存入缓冲区的向量，四个其它字段用来放指向
+向量的索引 (indices)。两个索引是 start 与 end ，任何环状缓冲区的使用都会需要这两个索引: start 指向缓冲区的第一个值，
+当我们取出一个值时， start 会递增 (incremented)； end 指向缓冲区的最后一个值，当我们插入一个新值时， end 会递增。
+
+另外两个索引， used 以及 new ，是我们需要给这个应用的基本环状缓冲区所加入的东西。它们会介于 start 与 end 之间。
+实际上，它总是符合
+start ≤ used ≤ new ≤ end
+
+你可以把 used 与 new 想成是当前匹配 (current match) 的 start 与 end 。当我们开始一轮匹配时， 
+used 会等于 start 而 new 会等于 end 。当下一个字符 (successive character)匹配时，我们需要递增 used 。
+当 used 与 new 相等时，我们将开始匹配时，所有存在缓冲区的字符读入。我们不想要使用超过从匹配时所存在缓冲区的字符，
+或是重复使用同样的字符。因此这个 new 索引，开始等于 end ，但它不会在一轮匹配我们插入新字符至缓冲区一起递增。
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defstruct buf
+  vec (start -1) (used -1) (new -1) (end -1))
+;;; start used new end 的初始值为 -1
+
+(defun bref (buf n)
+  (svref (buf-vec buf)
+         (mod n (length (buf-vec buf)))))
+;;;
+函数 bref 接受一个缓冲区与一个索引，并返回索引所在位置的元素。借由使用 index 对向量的长度取 mod ，
+我们可以假装我们有一个任意长的缓冲区。
+;;;
+
+(defun (setf bref) (val buf n)
+  (setf (svref (buf-vec buf)
+               (mod n (length (buf-vec buf))))
+        val))
+;;;??? (setf bref) 它重载了setf方法
+
+
+(defun new-buf (len)
+  (make-buf :vec (make-array len)))
+;;;
+调用 (new-buf n) 会产生一个新的缓冲区，能够容纳 n 个对象。
+;;;
+
+(defun buf-insert (x b)
+  (setf (bref b (incf (buf-end b))) x))
+;;;
+要插入一个新值至缓冲区，我们将使用 buf-insert 。它将 end 递增，并把新的值放在那个位置 (译注: 递增完的位置)。
+相反的 buf-pop 返回一个缓冲区的第一个数值，接着将 start 递增。任何环状缓冲区都会有这两个函数。
+;;;
+(defun buf-pop (b)
+  (prog1
+    (bref b (incf (buf-start b)))
+    (setf (buf-used b) (buf-start b)
+          (buf-new  b) (buf-end   b))))
+
+(defun buf-next (b)
+  (when (< (buf-used b) (buf-new b))
+    (bref b (incf (buf-used b)))))
+
+(defun buf-reset (b)
+  (setf (buf-used b) (buf-start b)
+        (buf-new  b) (buf-end   b)))
+
+(defun buf-clear (b)
+  (setf (buf-start b) -1 (buf-used  b) -1
+        (buf-new   b) -1 (buf-end   b) -1))
+;;;
+接下来我们需要两个特别为这个应用所写的函数: buf-next 从缓冲区读取一个值而不取出，而 buf-reset 重置 used 与 new 到初始值，
+分别是 start 与 end 。如果我们已经把至 new 的值全部读取完毕时， buf-next 返回 nil 。区别这个值与实际的值不会产生问题，
+因为我们只把值存在缓冲区。
+;;;
+(defun buf-flush (b str)
+  (do ((i (1+ (buf-used b)) (1+ i)))
+      ((> i (buf-end b)))
+    (princ (bref b i) str)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun file-subst (old new file1 file2)
+  (with-open-file (in file1 :direction :input)
+     (with-open-file (out file2 :direction :output
+                                :if-exists :supersede)
+       (stream-subst old new in out))))
+;;;
+函数 file-subst 接受四个参数；一个查询字符串，一个替换字符串，一个输入文件以及一个输出文件。
+它创建了代表每个文件的流，然后调用 stream-subst 来完成实际的工作。
+
+第二个函数 stream-subst 使用本节开始所勾勒的算法。它一次从输入流读一个字符。直到输入字符匹配要寻找的字符串时，
+直接写至输出流 (1)。当一个匹配开始时，有关字符在缓冲区 buf 排队等候 (2)。
+
+变数 pos 指向我们想要匹配的字符在寻找字符串的所在位置。如果 pos 等于这个字符串的长度，我们有一个完整的匹配，
+则我们将替换字符串写至输出流，并清空缓冲区 (3)。如果在这之前匹配失败，我们可以将缓冲区的第一个元素取出，
+并写至输出流，之后我们重置缓冲区，并从 pos 等于 0 重新开始 (4)。
+(defun stream-subst (old new in out)
+  (let* ((pos 0)
+         (len (length old))
+         (buf (new-buf len)) ;; 缓冲区长度等于old字符串长度，存放 读入的待匹配的字符串
+         (from-buf nil))
+    (do ((c (read-char in nil :eof)            ;;根据used和new来判定，缓冲区是否有字符。
+            (or (setf from-buf (buf-next buf)) ;;因为有短路现象，要么从buffer中读取，要不从流中。
+                (read-char in nil :eof))))     ;;一旦出现不匹配，应该从下个字符开始重新匹配。而这个字符有可能已经保存在buffer里。
+        ((eql c :eof))
+      (cond ((char= c (char old pos))  ;; 字符匹配
+             (incf pos)                ;; pos ++
+             (cond ((= pos len)            ; 3  如果 pos 等于这个字符串的长度，我们有一个完整的匹配
+                    (princ new out)        ;; 则我们将替换字符串写至输出流，并清空缓冲区
+                    (setf pos 0)
+                    (buf-clear buf))
+                   ((not from-buf)         ; 2
+                    (buf-insert c buf))))
+            ((zerop pos)                   ; 1
+             (princ c out)
+             (when from-buf
+               (buf-pop buf)
+               (buf-reset buf)))
+            (t                             ; 4
+             (unless from-buf
+               (buf-insert c buf))
+             (princ (buf-pop buf) out)
+             (buf-reset buf)
+             (setf pos 0))))
+    (buf-flush buf out)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
