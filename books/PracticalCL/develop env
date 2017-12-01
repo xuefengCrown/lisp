@@ -1,0 +1,36 @@
+# 编程环境
+emacs + sbcl + slime
+
+## 进入slime: alt + x->slime
+
+## 退出调试器: 0 or q
+
+## 加载文件时，默认的存放路径(default directory)如何修改
+在slime下， 输入逗号(,) 然后在提示命令时输入cd 指定默认路径。
+
+## 加载文件
+(load "helloworld.lisp")
+
+### 编译 加载
+CL-USER> (load (compile-file "hello.lisp"))
+;;; Compiling file hello.lisp
+;;; Writing fasl file hello.fasl
+;;; Fasl write complete
+; Fast loading /home/peter/my-lisp-programs/hello.fasl
+T
+
+## 光标移动快捷键
+ctrl + right （一步一个单词）
+ctrl + end （文件末尾）
+end 行尾
+home 行首
+ctrl + a 左移一个字符
+ctrl + f 右移一个字符
+
+## 不断调试 修改 程序
+Serious Lisp hackers often keep a Lisp image running for days on end, adding,
+redefining, and testing bits of their program incrementally.
+资深程序员会保持一个lisp映像不断运行，以不断添加 重定义 测试他们的程序。
+
+## 诊断和修复运行中的代码？？？
+
