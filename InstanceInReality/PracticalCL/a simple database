@@ -1,0 +1,389 @@
+# 简单数据库
+
+In Chapter 4, you’ll learn that Common Lisp provides three distinct kinds of operators: functions, macros,
+and special operators.（函数，宏，特殊operators）
+
+to see how even a relatively simple Lisp program can be quite featureful.
+即便相对简单的Lisp程序 也可以有着丰富的功能。
+
+# CDs and Records
+To keep track of CDs that need to be ripped（转换） to MP3s and which CDs should be ripped first, each
+record in the database will contain the title and artist of the CD, a rating of how much the user
+likes it, and a flag saying whether it has been ripped.
+
+## 数据表示
+Common Lisp gives you lots of choices of data structures from a simple four-item list to 
+a user-defined class, using the Common Lisp Object System (CLOS).
+
+## property list （属性表）
+You could use a four-item list, mapping a given position in the list to a given field in the
+record. However, another flavor of list—called a property list, or plist for short—is even more
+convenient. A plist is a list where every other element, starting with the first, is a symbol that
+describes what the next element in the list is. 
+
+存
+CL-USER> (setf pl (list :a 1 :b 2 :c 3))
+(:A 1 :B 2 :C 3)
+取
+(getf pl :a)
+
+## make-cd
+Given all that, you can easily enough write a function make-cd that will take the four fields
+as arguments and return a plist representing that CD.
+有了这些知识，你就可以很容易的写个函数 make-cd，需要四个参数，返回一个 plist 代表一张cd。
+(defun make-cd (title artist rating ripped)
+  (list :title title :artist artist :rating rating :ripped ripped))
+
+比如，我正在听的 Rihanna 的 Stay
+CL-USER>  (make-cd "Stay" "Rihanna" 909 t)
+
+# Filing CDs
+## 使用 defvar 宏 来定义全局变量
+(defvar *db* nil)
+
+## 使用push宏来添加新项
+(defun add-record (cd)
+  (push cd *db*))
+  
+## Looking at the Database Contents
+You can also see the current value of *db* whenever you want by typing *db* at the REPL.
+CL-USER> *db*
+((:TITLE "Home" :ARTIST "Dixie Chicks" :RATING 9 :RIPPED T)
+(:TITLE "Fly" :ARTIST "Dixie Chicks" :RATING 8 :RIPPED T)
+(:TITLE "Roses" :ARTIST "Kathy Mattea" :RATING 7 :RIPPED T))
+以上形式的内容，适合给机器看。
+
+我们应该提供适合给人看的内容，如下：
+However, that’s not a very satisfying way of looking at the output. You can write a dump-db
+function that dumps out the database in a more human-readable format, like this:   
+  
+TITLE: Home
+ARTIST: Dixie Chicks
+RATING: 9
+RIPPED: T
+
+TITLE: Fly
+ARTIST: Dixie Chicks
+RATING: 8
+RIPPED: T
+
+TITLE: Roses
+ARTIST: Kathy Mattea
+RATING: 7
+RIPPED: T
+
+The function looks like this:
+(defun dump-db ()
+  (dolist (cd *db*)
+    (format t "~{~a:~10t~a~%~}~%" cd)))
+
+## Improving the User Interaction
+提高用户交互体验
+
+While our add-record function works fine for adding records, it’s a bit Lispy for the casual user.
+And if they want to add a bunch of records, it’s not very convenient. So you may want to write
+a function to prompt the user for information about a set of CDs. Right away you know you’ll
+need some way to prompt the user for a piece of information and read it. So let’s write that.
+
+(defun prompt-read (prompt) ;; returns a string 
+  (format *query-io* "~a: " prompt) ;; *query-io* is a global variable that contains the input stream connected to the terminal. 
+  (force-output *query-io*)
+  (read-line *query-io*)) ;; 从*query-io* 读取一行，作为返回值
+;; The call to  FORCE-OUTPUT is necessary in some implementations to ensure that 
+;; Lisp doesn’t wait for a newline before it prints the prompt.
+
+### 将 prompt-read 与 make-cd 联合
+(defun prompt-for-cd ()
+  (make-cd
+    (prompt-read "Title")
+    (prompt-read "Artist")
+    (prompt-read "Rating")
+    (prompt-read "Ripped [y/n]")))
+
+??? Rating 和 Ripped 不是字符串，如何处理???
+That’s almost right. Except prompt-read returns a string, which, while fine for the Title and
+Artist fields, isn’t so great for the Rating and Ripped fields, which should be a number and a
+boolean. Depending on how sophisticated a user interface you want, you can go to arbitrary
+lengths to validate the data the user enters. For now let’s lean toward the quick and dirty: you
+can wrap the prompt-read for the rating in a call to Lisp’s  PARSE-INTEGER function, like this:
+
+(parse-integer (prompt-read "Rating"))
+基本很好了。除了prompt-read 返回的是字符串，这对于 Title和Artist是可以的，但是 Rating 是 Number 类型
+，而Ripped是boolean类型。看你需要多复杂的用户接口，就需要多长的对用户数据的验证。这里只使用一种简单处理：
+直接包裹 parse-integer，来将 数值字符串转化为 数值。
+
+Unfortunately, the default behavior of  PARSE-INTEGER is to signal an error if it can’t parse
+an integer out of the string or if there’s any non-numeric junk in the string. However, it takes an
+optional keyword argument :junk-allowed, which tells it to relax a bit.
+
+(parse-integer (prompt-read "Rating") :junk-allowed t)
+不幸的是，如果字符串不能转化为数值，parse-integer 将抛出一个error。可以使用 :junk-allowed 关键字参数做宽容处理。
+
+But there’s still one problem: if it can’t find an integer amidst all the junk,  PARSE-INTEGER
+will return NIL rather than a number. In keeping with the quick-and-dirty approach, you may
+just want to call that 0 and continue. Lisp’s  OR macro is just the thing you need here. It’s similar
+to the “short-circuiting” || in Perl, Python, Java, and C; it takes a series of expressions, evalu-
+ates them one at a time, and returns the first non-nil value (or  NIL if they’re all  NIL ). So you can
+use the following:
+(or (parse-integer (prompt-read "Rating") :junk-allowed t) 0)
+to get a default value of 0.
+仍然存在一个问题：如果不能生成一个数值，parse-integer 将返回 nil，我们这里简单处理：如果不能得到一个数值，我们设定一个
+默认值0。 使用 or 宏 很容易实现。
+！！！！！！！！！！！！！！！！！！！！！！！！（or 返回第一个非空值）
+（原来 or 的意义在此，我终于理解了 Lisp中的 or 的使用场景，确实比其他语言要优雅的多，
+这得益于Lisp的操作符在前，也得益于Lisp中的假值等价于 nil）
+！！！！！！！！！！！！！！！！！！！！！！！！
+
+最后得到
+(defun prompt-for-cd ()
+  (make-cd
+    (prompt-read "Title")
+    (prompt-read "Artist")
+    (or (parse-integer (prompt-read "Rating") :junk-allowed t) 0)
+    (y-or-n-p "Ripped [y/n]: ")))
+
+Finally, you can finish the “add a bunch of CDs” interface by wrapping prompt-for-cd in a
+function that loops until the user is done. You can use the simple form of the  LOOP macro, which
+repeatedly executes a body of expressions until it’s exited by a call to  RETURN . For example:
+(defun add-cds ()
+  (loop (add-record (prompt-for-cd))
+    (if (not (y-or-n-p "Another? [y/n]: ")) (return))))
+
+## Saving and Loading the Database
+保存和加载数据库
+
+Luckily, with the data structures you’re using to represent the data, it’s trivially easy to
+save the data to a file and reload it later. Here’s a save-db function that takes a filename as an
+argument and saves the current state of the database:
+幸运的是，你用来表示数据的数据结构（列表），是很容易保存在文件里然后重新加载的。
+(defun save-db (filename)
+  (with-open-file (out filename ;; 将文件流绑定在 out 变量上
+                  :direction :output ;; 打开一个用于写入的文件
+                  :if-exists :supersede) ;; 当存在同名文件时，覆盖
+    (with-standard-io-syntax
+      (print *db* out))))
+
+将数据加载回程序（内存）
+(defun load-db (filename)
+  (with-open-file (in filename) ;; default :direction :input
+    (with-standard-io-syntax
+      (setf *db* (read in)))))
+You do need to be careful about one thing—load-db clobbers whatever was in *db* before the call. So if you’ve added
+records with add-record or add-cds that haven’t been saved with save-db, you’ll lose them.
+bug: 如果之前使用 add-record 或 add-cds 而没有使用save-db写回数据库，你load-db的话会失去刚才添加的。
+
+
+## Querying the Database
+查询数据库
+
+当数据越来越多时，你可能希望能够查询某些记录，如：
+(select :artist "Dixie Chicks")
+;; and get a list of all the records where the artist is the Dixie Chicks.
+Again, it turns out that the choice of saving the records in a list will pay off.
+我们将在此见证，选用list来表征和存储records是非常明智的。
+
+### 数据过滤（filter）
+这里使用 remove-if-not
+The function  REMOVE-IF-NOT takes a predicate and a list and returns a list containing only
+the elements of the original list that match the predicate. In other words, it has removed all the
+elements that don’t match the predicate. 
+
+However,  REMOVE-IF-NOT doesn’t really remove anything—it creates a new list, 
+leaving the original list untouched. It’s like running grep over a file. 
+remove-if-not 对原列表不作修改，它会创建一个满足谓词的新列表。它叫做 非破坏性方法 （nondestructive method）
+
+The predicate argument can be any function that accepts a single argument and returns a
+boolean value— NIL for false and anything else for true.
+
+CL-USER> (remove-if-not #'evenp '(1 2 3 4 5 6 7 8 9 10))
+(2 4 6 8 10)
+
+;; query by artist
+(defun select-by-artist (artist)
+  (remove-if-not #'(lambda (cd) (string-equal artist (getf cd :artist)))
+    *db*
+	))
+你还可以 select-by-title, select-by-artist-and-title...
+但他们之间除了匿名函数之外，没有什么区别。
+换个做法，可以写个更加通用的select函数来，它接受一个函数(selector 选择器)作为参数
+(defun select (selector-fn)
+  (remove-if-not selector-fn *db*))
+
+定义选择器，它返回一个匿名函数：
+(defun artist-selector (artist)
+  #'(lambda (cd) (string-equal artist (getf cd :artist))))
+
+This is a function that returns a function and one that references a variable that—it seems—
+won’t exist after artist-selector returns.
+这是个返回函数的函数，而且返回的这个函数还引用了一个artist-selector返回后似乎就不会存在的变量（artist）。
+闭包是也。
+
+！！！进一步地！！！
+现在你只需要更多的函数来生成selector。但正如你不想去写 select-by-title, select-by-rating...相似的函数。
+你肯定也不想写一些列看上去一样的对于每个字段的 selector-function 生成器。
+为什么不写一个通用的（generate-purpose）的selector-function generator，根据你传递给它的参数的不同来
+生成针对不同字段的或组合字段的选择器函数（selector-function）。
+但在此之前，你需要了解 关键字参数 （keyword parameters）。
+
+有时，你想定义一个函数，可以接受任意数量的参数。关键字参数就是一种实现方法。你可以这样使用：
+(defun foo (&key a b c) (list a b c))
+然后你就可以这样调用foo:
+(foo :a 1 :b 2 :c 3)  → (1 2 3)
+(foo :c 3 :b 2 :a 1)  → (1 2 3)
+(foo :a 1 :c 3) → (1 NIL 3)
+(foo) → (NIL NIL NIL)
+
+指定缺省值 和 是否被赋值标志
+(defun foo (&key a (b 20) (c 30 c-p)) (list a b c c-p))
+Now the same calls from earlier yield these results:
+(foo :a 1 :b 2 :c 3)  → (1 2 3 T)
+(foo :c 3 :b 2 :a 1)  → (1 2 3 T)
+(foo :a 1 :c 3) → (1 20 3 T)
+(foo) → (NIL 20 30 NIL)
+
+## 定义general selector-function generator
+The general selector-function generator, which you can call where for reasons that will
+soon become apparent if you’re familiar with SQL databases, is a function that takes four
+keyword parameters corresponding to the fields in our CD records and generates a selector
+function that selects any CDs that match all the values given to where. For instance, it will let
+you say things like this:
+(select (where :artist "Dixie Chicks"))
+or this:
+(select (where :rating 10 :ripped nil))
+The function looks like this:
+(defun where (&key title artist rating (ripped nil ripped-p))
+#'(lambda (cd)
+  (and
+    (if title (equal (getf cd :title) title) t)
+    (if artist (equal (getf cd :artist) artist) t)
+    (if rating (equal (getf cd :rating) rating) t)
+    (if ripped-p (equal (getf cd :ripped) ripped) t))))
+
+## Updating Existing Records—Another Use for WHERE
+更新记录
+所有数据库都需要的特性——更新特定记录
+
+(defun update (selector-fn &key title artist rating (ripped nil ripped-p))
+  (setf *db*
+    (mapcar
+    #'(lambda (row)
+        (when (funcall selector-fn row)
+        (if title (setf (getf row :title) title))
+        (if artist (setf (getf row :artist) artist))
+        (if rating (setf (getf row :rating) rating))
+        (if ripped-p (setf (getf row :ripped) ripped)))
+        row) *db*)))
+The main new bit is the use of a function  MAPCAR that maps over a list, 
+*db* in this case, and returns a new list containing the results of calling a function on each
+item in the original list.
+
+With this update function if you decide that you really dig the Dixie Chicks and
+that all their albums should go to 11, you can evaluate the following form:
+CL-USER> (update (where :artist "Dixie Chicks") :rating 11)
+NIL
+And it is so.
+
+You can even more easily add a function to delete rows from the database.
+(defun delete-rows (selector-fn)
+  (setf *db* (remove-if selector-fn *db*)))
+
+## Removing Duplication and Winning Big
+消除重复，收益良多
+So far all the database code supporting insert, select, update, and delete, not to mention a
+command-line user interface for adding new records and dumping out the contents, is just a
+little more than 50 lines. Total.
+到此为止，我们的数据库代码支持插入，查询，更新和删除，更不用说还有用来添加新记录和导出内容的命令行
+接口，只有50行多一点代码。
+
+
+还是有一些恼人的代码重复。我们可以在消除重复的同时让代码更加灵活。
+我所说的重复出现在 where 函数中。where函数中是一系列这样的分支语句：
+(if title (equal (getf cd :title) title) t)
+
+眼下情况还不坏，但是像所有的代码重复一样，它们有着一样的代价：如果你想改变它的行为，你需要改变它的所有副本。
+而且，如果你改变了cd的字段，你必须add或delete where的相应分支。update也承受着同样的重复带来的损害。
+更恼人的是，where方法的本意是动态生成一些代码来检查你关心的那些值；那为什么非要在运行期检查title参数是否传入呢？
+
+想象下，你正在优化这段代码，你发现它花费太多时间在检查 title和 where的其他关键字参数折否被设置。如果你确实
+想移除所有这些运行时检查，则可以通过一个程序来发现所有你调用where的地方以及传递了哪些参数。
+然后你可以替换每一个对where的调用，使用一个只做必要比较的匿名函数。例如，如果你看到这小段代码：
+(select (where :title "Give Us a Break" :ripped t))
+你可以将它修改为：
+(select
+  #'(lambda (cd)
+      (and (equal (getf cd :title) "Give Us a Break")
+           (equal (getf cd :ripped) t))))
+
+注意到，这个匿名函数是不同于where函数要返回的；你并非试图节省对where的调用，而是为提供一个更高效的selector function。
+这个匿名函数只有在这次调用中你关心的字段的检查分支，所以它没有像where所返回的函数那样做了很多多余工作。
+
+你可能想检查所有源代码，并以这种方式修复所有对where的调用。这样做很痛苦。
+如果这样的代码足够多，足够重要的话，那么写一个预处理器（preprocessor）来将对where的调用转化为你手写的代码，就是值得的。
+
+使这件事情变得极其简单的Lisp特性是它的宏系统。我必须反复强调，它不同于C和C++的基于文本的宏，C的预处理器
+做的知识文本替换，而且对C和C++的结构一无所知。
+lisp 的宏本质上是一个由编译器自动为你运行的代码生成器。当一个 Lisp表达式包含一个宏调用时，它不会对参数求值然后
+传递给函数，而是Lisp编译器直接将未求值的参数传递给宏代码，返回一个新的Lisp表达式，在原先宏调用的地方进行求值。
+
+
+## how you can replace the where function with a where macro. 
+如何使用where宏来替换掉where函数
+
+### 创建宏
+(defmacro backwards (expr) (reverse expr))
+
+它是如何工作的？
+CL-USER> (backwards ("hello, world" t format))
+hello, world
+NIL
+
+当REPL开始求值 backwards 表达式，发现它是一个宏名。所以它保留表达式("hello, world" t format)而不求值，这很好，因为
+这不是一个合法的Lisp形式。然后它将这个list传递给 backwards 的代码。内部代码将该 list 传给reverse， 返回
+(format t "hello, world") backwards将这个结果list返回给 REPL，然后对其求值以顶替最初表达式。
+
+这对修改where函数的重复代码有何用处？
+你可以写个宏，来生成你所需要的对每个where调用的准确代码。再一次的，最好的方法是自底向上的构建你的代码。
+在手动优化的selector function中，对于出现在初始where调用中的每个实际字段都有如下的形式：
+(equal (getf cd field) value)
+
+让我们写一个这样的函数：给定字段名和相应值，返回一个这样的比较表达式；
+因为一个表达式(expression)也就是一个列表(list)，你可以这样写：
+(defun make-comparison-expr (field value)
+  (list 'equal (list 'getf 'cd field) value))
+
+CL-USER> (make-comparison-expr :rating 10)
+(EQUAL (GETF CD :RATING) 10)
+CL-USER> (make-comparison-expr :title "Give Us a Break")
+(EQUAL (GETF CD :TITLE) "Give Us a Break")
+
+更好的方法。
+当你想对一个列表的大部分不求值，而想对个别子列表求值时，可以使用反引号(`) 和 逗号(,)
+前面有逗号的表达式会被求值！
+`(1 2 (+ 1 2)) → (1 2 (+ 1 2))
+`(1 2 ,(+ 1 2)) → (1 2 3)
+!!! 左上角esc下面的那个就是反引号 ````````````````````````````````````
+
+Using a back quote, you can write make-comparison-expr like this:
+(defun make-comparison-expr (field value)
+  `(equal (getf cd ,field) ,value))
+
+
+(defun make-comparisons-list (fields)
+  (loop while fields
+    collecting (make-comparison-expr (pop fields) (pop fields))))
+
+(defmacro where (&rest clauses)
+  `#'(lambda (cd) (and ,@(make-comparisons-list clauses))))
+  
+### ,@ 的作用
+You can see the difference between , and ,@ in the following two expressions:
+`(and ,(list 1 2 3)) → (AND (1 2 3))
+`(and ,@(list 1 2 3))  → (AND 1 2 3)
+You can also use ,@ to splice into the middle of a list.
+`(and ,@(list 1 2 3) 4)  → (AND 1 2 3 4)
+
+You removed duplication and made the code more efficient and more general at the same time. 
+你消除了代码重复，在你这样做的时候，使得代码更有效而且更通用。
+
+;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;
