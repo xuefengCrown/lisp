@@ -1,0 +1,133 @@
+# 函数
+
+All the built-in data types are defined purely in terms
+of what functions operate on them. Even Lisp’s powerful object system is built upon a concep-
+tual extension to functions, generic functions, which I’ll cover in Chapter 16.
+
+
+Finally, the body of a  DEFUN consists of any number of Lisp expressions. They will be eval-
+uated in order when the function is called and the value of the last expression is returned as the
+value of the function. Or the  RETURN-FROM special operator can be used to return immediately
+from anywhere in a function, as I’ll discuss in a moment.
+
+## Optional Parameters
+可选形参
+(defun foo (a b &optional c d) (list a b c d))
+
+### 缺省值 （default value）
+(defun foo (a &optional (b 10)) (list a b))
+
+(defun make-rectangle (width &optional (height width)) ...)
+
+(defun foo (a b &optional (c 3 c-supplied-p))
+  (list a b c c-supplied-p))
+
+## Rest Parameters
+
+(+)
+(+ 1)
+(+ 1 2)
+(+ 1 2 3)
+Thus, the parameter lists for  FORMAT and  + probably look something like this:
+(defun format (stream string &rest values) ...)
+(defun + (&rest numbers) ...)
+
+
+## Keyword Parameters
+(defun foo (&key a b c) (list a b c))
+(foo) → (NIL NIL NIL)
+(foo :a 1) → (1 NIL NIL)
+(foo :b 1) → (NIL 1 NIL)
+(foo :c 1) → (NIL NIL 1)
+(foo :a 1 :c 3) → (1 NIL 3)
+(foo :a 1 :b 2 :c 3)  → (1 2 3)
+(foo :a 1 :c 3 :b 2)  → (1 2 3)
+
+(defun foo (&key (a 0) (b 0 b-supplied-p) (c (+ a b)))
+(list a b c b-supplied-p))
+(foo :a 1) → (1 0 1 NIL)
+(foo :b 1) → (0 1 1 T)
+(foo :b 1 :c 4) → (0 1 4 T)
+(foo :a 2 :b 1 :c 4)  → (2 1 4 T)
+
+
+## Function Return Values
+RETURN-FROM special operator to immediately return any value from the function.
+RETURN-FROM is a special operator whose first “argument” is the name of the block from which to return.
+
+The following function uses nested loops to find the first pair of numbers, each less than
+10, whose product is greater than the argument, and it uses  RETURN-FROM to return the pair as
+soon as it finds it:
+(defun foo (n)
+  (dotimes (i 10)
+    (dotimes (j 10)
+      (when (> (* i j) n)
+        (return-from foo (list i j))))))
+
+## Functions As Data, a.k.a. Higher-Order Functions
+While the main way you use functions is to call them by name, a number of situations exist
+where it’s useful to be able treat functions as data. For instance, if you can pass one function as
+an argument to another, you can write a general-purpose sorting function while allowing the
+caller to provide a function that’s responsible for comparing any two elements. Then the same
+underlying algorithm can be used with many different comparison functions. Similarly, call-
+backs and hooks depend on being able to store references to code in order to run it later. Since
+functions are already the standard way to abstract bits of code, it makes sense to allow functions to
+be treated as data.
+
+(function foo) ;; 得到foo函数 对象
+#' 是 function的语法糖
+
+调用函数对象
+funcall
+apply
+
+(foo 1 2 3)  ≡ (funcall #'foo 1 2 3)
+However, there’s little point in using  FUNCALL to call a function whose name you know
+when you write the code. 
+
+The following function demonstrates a more apt use of  FUNCALL . It accepts a function
+object as an argument and plots a simple ASCII-art histogram of the values returned by the
+argument function when it’s invoked on the values from min to max, stepping by step.
+(defun plot (fn min max step)
+  (loop for i from min to max by step do
+      (loop repeat (funcall fn i) do (format t "*"))
+      (format t "~%")))
+;; 绘制函数图像      
+CL-USER> (defun x^2 (x) (* x x))
+X^2
+CL-USER> (plot #'x^2 0 5 1/2)
+CL-USER> (plot #'exp 0 4 1/2)
+*
+*
+**
+****
+*******
+************
+********************
+*********************************
+******************************************************
+NIL
+
+(apply #'plot plot-data)
+As a further convenience,  APPLY can also accept “loose” arguments as long as the last
+argument is a list. Thus, if plot-data contained just the min, max, and step values, you could
+still use  APPLY like this to plot the  EXP function over that range:
+(apply #'plot #'exp plot-data)
+
+??????
+APPLY doesn’t care about whether the function being applied takes  &optional ,  &rest , or
+&key arguments—the argument list produced by combining any loose arguments with the
+final list must be a legal argument list for the function with enough arguments for all the required
+parameters and only appropriate keyword parameters.
+
+
+## Anonymous Functions
+匿名函数
+The other important use of  LAMBDA expressions is in making closures, functions that
+capture part of the environment where they’re created. You used closures a bit in Chapter 3,
+but the details of how closures work and what they’re used for is really more about how variables
+work than functions, so I’ll save that discussion for the next chapter.
+LAMBDA表达式的另一重要用途在——创建闭包，即捕捉其创建时环境信息的函数。
+但是想理解闭包如何工作的细节以及用途，更多的还是要从变量而不是函数的角度去考察，因此我将在下一章考察它们。
+
+
