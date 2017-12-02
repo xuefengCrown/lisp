@@ -25,13 +25,13 @@ Fib(n+2) = Fib(n+1) + Fib(n)
 
 // 相应的java版本
 public static long fib(int nth){
-		long cur = 0, next = 1, temp = 0;
-		for(int i=1; i<nth; i++){
-			temp = cur + next;
-			cur = next;
-			next = temp;
-		}
-		return cur;
+    long cur = 0, next = 1, temp = 0;
+    for(int i=1; i<nth; i++){
+	temp = cur + next;
+	cur = next;
+	next = temp;
+    }
+    return cur;
 }
 
 3.递归的外表，迭代的心
