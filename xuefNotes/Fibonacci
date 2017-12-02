@@ -1,0 +1,55 @@
+# 计算第 n 个斐波那契数
+约定： 0  1  1  2  3  5  8  13
+Fib(n+2) = Fib(n+1) + Fib(n)
+
+1. 最简单的，根据其定义直接生成的递归
+;; lisp code
+(defun fib-recur (n)
+  (cond ((= n 1) 0)
+        ((= n 2) 1)
+        (t (+ 
+            (fib-recur (1- n)) 
+            (fib-recur (- n 2))))))
+;;; 缺点：时间复杂度是指数级的，等价于 fib(n)
+;;; 测试显示，n > 40 时就很慢了
+
+2. 迭代
+;; lisp code
+(defun fib-iter (nth)
+  (do ((n 0 (1+ n))
+       (cur 0 next)
+       (next 1 (+ cur next)))
+    ((= (1- nth) n) cur)))
+;;; 优点：时间复杂度是 o(n)
+;;; 缺点：因为使用了 do 宏，不好理解
+
+// 相应的java版本
+public static long fib(int nth){
+		long cur = 0, next = 1, temp = 0;
+		for(int i=1; i<nth; i++){
+			temp = cur + next;
+			cur = next;
+			next = temp;
+		}
+		return cur;
+}
+
+3.递归的外表，迭代的心
+《SICP》说得好，递归分为定义上得递归和运算上得递归；而且同样是递归调用，从执行上看也分线性的和树形的。
+具体参见该书。
+
+下面的方法，是我在《C程序设计抽象思想》第四章看到的。
+它不仅适用于斐波那契数列，它适用于所有加法序列 t(N+2) = t(N+1) + t(N)
+int AdditiveSeq(int n, int t0, int t1){
+  if(n == 0) return t0;
+  if(n == 1) return t1;
+  return AdditiveSeq(n-1, t1, t0 + t1);
+}
+// fib(n) 不过是 t0 = 0, t1 = 1 的加法序列
+int fib(n){
+  return AdditiveSeq(n, 0, 1);
+}
+
+// 代码看上去是递归，其实也是迭代；时间复杂度同2，为 o(n)
+;;;;;;
+;;;;;;
