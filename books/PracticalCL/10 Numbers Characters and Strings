@@ -1,0 +1,107 @@
+# 10 Numbers, Characters, and Strings
+
+W hile functions, variables, macros, and 25 special operators provide the basic building
+blocks of the language itself, the building blocks of your programs will be the data structures
+you use. As Fred Brooks observed in The Mythical Man-Month, “Representation is the essence
+of programming.” 
+
+Common Lisp provides built-in support for most of the data types typically found in
+modern languages: numbers (integer, floating point, and complex), characters, strings, arrays
+(including multidimensional arrays), lists, hash tables, input and output streams, and an
+abstraction for portably representing filenames. Functions are also a first-class data type in
+Lisp—they can be stored in variables, passed as arguments, returned as return values, and
+created at runtime.
+
+And these built-in types are just the beginning. They’re defined in the language standard
+so programmers can count on them being available and because they tend to be easier to
+implement efficiently when tightly integrated（组合 整合） with the rest of the implementation. But, as
+you’ll see in later chapters, Common Lisp also provides several ways for you to define new data
+types, define operations on them, and integrate them with the built-in data types.
+
+For now, however, you can start with the built-in data types. Because Lisp is a high-level
+language, the details of exactly how different data types are implemented are largely hidden.
+From your point of view as a user of the language, the built-in data types are defined by the
+functions that operate on them. So to learn a data type, you just have to learn about the func-
+tions you can use with it. Additionally, most of the built-in data types have a special syntax that
+the Lisp reader understands and that the Lisp printer uses. That’s why, for instance, you can
+write strings as "foo"; numbers as 123, 1/23, and 1.23; and lists as (a b c). I’ll describe the
+syntax for different kinds of objects when I describe the functions for manipulating them.
+
+In this chapter, I’ll cover the built-in “scalar” data types: numbers, characters, and strings.
+Technically, strings aren’t true scalars—a string is a sequence of characters, and you can access
+individual characters and manipulate strings with a function that operates on sequences. But
+I’ll discuss strings here because most of the string-specific functions manipulate them as single
+values and also because of the close relation between several of the string functions and their
+character counterparts.
+
+！！！scalar: a quantity, such as time or temperature, that has magnitude but not direction 标量
+→compare vector 
+
+## Numbers
+Math, as Barbie says, is hard. 2 Common Lisp can’t make the math part any easier, but it does
+tend to get in the way a lot less than other programming languages. That’s not surprising given
+its mathematical heritage. Lisp was originally designed by a mathematician as a tool for studying
+mathematical functions. And one of the main projects of the MAC project at MIT was the Macsyma
+symbolic algebra system, written in Maclisp, one of Common Lisp’s immediate predecessors.
+Additionally, Lisp has been used as a teaching language at places such as MIT where even the
+computer science professors cringe at the thought of telling their students that 10/4 = 2, leading
+to Lisp’s support for exact ratios. And at various times Lisp has been called upon to compete
+with FORTRAN in the high-performance numeric computing arena.
+One of the reasons Lisp is a nice language for math is its numbers behave more like true
+mathematical numbers than the approximations of numbers that are easy to implement in
+finite computer hardware. For instance, integers in Common Lisp can be almost arbitrarily
+large rather than being limited by the size of a machine word. 3 And dividing two integers
+results in an exact ratio, not a truncated value. And since ratios are represented as pairs of arbi-
+trarily sized integers, ratios can represent arbitrarily precise fractions. 4
+On the other hand, for high-performance numeric programming, you may be willing to
+trade the exactitude of rationals for the speed offered by using the hardware’s underlying
+floating-point operations. So, Common Lisp also offers several types of floating-point numbers,
+which are mapped by the implementation to the appropriate hardware-supported floating-
+point representations. 5 Floats are also used to represent the results of a computation whose
+true mathematical value would be an irrational number.
+Finally, Common Lisp supports complex numbers—the numbers that result from doing
+things such as taking square roots and logarithms of negative numbers. The Common Lisp
+standard even goes so far as to specify the principal values and branch cuts for irrational and
+transcendental functions on the complex domain.
+
+## Numeric Literals
+You can write numeric literals in a variety of ways; you saw a few examples in Chapter 4. However,
+it’s important to keep in mind the division of labor between the Lisp reader and the Lisp
+evaluator—the reader is responsible for translating text into Lisp objects, and the Lisp evalu-
+ator then deals only with those objects. For a given number of a given type, there can be many
+different textual representations, all of which will be translated to the same object representa-
+tion by the Lisp reader. For instance, you can write the integer 10 as 10, 20/2, #xA, or any of a
+number of other ways, but the reader will translate all these to the same object. When numbers
+are printed back out—say, at the REPL—they’re printed in a canonical textual syntax that may
+be different from the syntax used to enter the number. For example:
+CL-USER> 10
+10
+CL-USER> 20/2
+10
+CL-USER> #xa
+10
+
+It’s also possible to write rationals in bases other than 10. If preceded by #B or #b, a rational
+literal is read as a binary number with 0 and 1 as the only legal digits. An #O or #o indicates an
+octal number (legal digits 0–7), and #X or #x indicates hexadecimal (legal digits 0–F or 0–f). You
+can write rationals in other bases from 2 to 36 with #nR where n is the base (always written in
+decimal). Additional “digits” beyond 9 are taken from the letters A–Z or a–z. Note that these
+radix indicators apply to the whole rational—it’s not possible to write a ratio with the numer-
+ator in one base and denominator in another. Also, you can write integer values, but not ratios,
+as decimal digits terminated with a decimal point. 6 Some examples of rationals, with their
+canonical, decimal representation are as follows:
+123 → 123
++123 → 123
+-123 → -123
+123. → 123
+2/3 → 2/3
+-2/3 → -2/3
+4/6 → 2/3
+6/3 → 2
+#b10101 → 21
+#b1010/1011 → 10/11
+#o777 → 511
+#xDADA → 56026
+#36rABCDEFGHIJKLMNOPQRSTUVWXYZ  → 8337503854730415241050377135811259267835
+
+
