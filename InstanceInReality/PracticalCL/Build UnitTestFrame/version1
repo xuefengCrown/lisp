@@ -1,0 +1,76 @@
+;; v1
+(defun test-+ ()
+  (and (= (+ 1 2) 3)
+       (= (+ 1 2 3) 6)
+       (= (+ -1 -3) -4)))
+;; 如果测试失败，没有详细的错误报告
+
+;; v2
+(defun test-+ ()
+  (format t "~:[FAIL~;pass~] ... ~a~%" (= (+ 1 2) 3) '(= (+ 1 2) 3))
+  (format t "~:[FAIL~;pass~] ... ~a~%" (= (+ 1 2 3) 6) '(= (+ 1 2 3) 6))
+  (format t "~:[FAIL~;pass~] ... ~a~%" (= (+ -1 -3) -4) '(= (+ -1 -3) -4)))
+;; 没有对总的结果的反馈（需要逐条查看）
+;; 太多代码重复
+
+(defun result-form (result form)
+  (format t "~:[FAIL~;pass~] ... ~a~%" result form))
+(defun test-+ ()
+  (result-form (= (+ 1 2) 3) '(= (+ 1 2) 3))
+  (result-form (= (+ 1 2 3) 6) '(= (+ 1 2 3) 6))
+  (result-form (= (+ -1 -3) -4) '(= (+ -1 -3) -4)))
+  
+;; v3-1
+;; (check (= (+ 1 2) 3))——> (result-form (= (+ 1 2) 3) '(= (+ 1 2) 3))
+(defmacro check (form)
+  `(result-form ,form ',form))
+;; 需要 result-form 函数
+
+;; 现在 test-+ 如下
+(defun test-+ ()
+  (check (= (+ 1 2) 3))
+  (check (= (+ 1 2 3) 6))
+  (check (= (+ -1 -3) -4)))
+;; check 重复了
+
+;; v3-2
+;; 重新定义 check 宏
+(defmacro check2 (&body forms)
+  `(progn
+    ,@(loop for f in forms collect `(result-form ,f ',f))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;    
+(macroexpand-1 '(check2 (= (+ 1 2) 3)
+                        (= (+ 1 2 3) 6)
+                        (= (+ -1 -3) -4)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun test-+ ()
+  (check2 (= (+ 1 2) 3)
+          (= (+ 1 2 3) 6)
+          (= (+ -1 -3) -4)))
+
+;; v4 fixing return value
+
+;; 修改 result-form 的返回值
+(defun result-form (result form)
+  (format t "~:[FAIL~;pass~] ... ~a~%" result form)
+  result)
+
+;; 我们想要的是
+(let ((result t))
+  (unless (foo) (setf result nil))
+  (unless (bar) (setf result nil))
+  (unless (baz) (setf result nil))
+  result)
+
+;; 对每个result-form 使用 unless 包装
+(defmacro combine-results (&body forms)
+  (with-gensyms (result)
+    `(let ((,result t))
+    ,@(loop for f in forms collect `(unless ,f (setf ,result nil)))
+    ,result)))
+
+(defmacro check (&body forms)
+  `(combine-results
+    ,@(loop for f in forms collect `(report-result ,f ',f))))
+
+;; 宏是怎么展开的???
