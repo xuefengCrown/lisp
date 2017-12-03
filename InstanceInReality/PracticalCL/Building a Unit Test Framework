@@ -122,29 +122,258 @@ to how test-+ behaves, you can make by changing check.
 
 ## Fixing the Return Value
 
+;; v4 fixing return value
+
+;; 修改 report-result 的返回值
+(defun report-result (result form)
+  (format t "~:[FAIL~;pass~] ... ~a~%" result form)
+  result)
+
+;; 我们想要的是
+(let ((result t))
+  (unless (foo) (setf result nil))
+  (unless (bar) (setf result nil))
+  (unless (baz) (setf result nil))
+  result)
+
+;; 对每个 report-result 使用 unless 包装
+(defmacro with-gensyms ((&rest names) &body body)
+  `(let ,(loop for n in names collect `(,n (gensym)))
+    ,@body))
+(defmacro combine-results (&body forms)
+  (with-gensyms (result)
+    `(let ((,result t))
+    ,@(loop for f in forms collect `(unless ,f (setf ,result nil)))
+    ,result)))
+
+(defmacro check (&body forms)
+  `(combine-results ;; 调用check时，combine-results是不展开的！
+    ,@(loop for f in forms collect `(report-result ,f ',f))))
+
+;; 宏是怎么展开的???
+CL-USER> (macroexpand-1 '(check (test-+) (test-*)))
+(COMBINE-RESULTS
+  (REPORT-RESULT (TEST-+) '(TEST-+))
+  (REPORT-RESULT (TEST-*) '(TEST-*)))
+T
+
+CL-USER> (macroexpand-1 '(combine-results (test-+) (test-*)))
+(LET ((#:G601 T))
+  (UNLESS (TEST-+) (SETF #:G601 NIL))
+  (UNLESS (TEST-*) (SETF #:G601 NIL))
+  #:G601)
+T
+
+;; v5 Better Result Reporting
+;; 添加 test-*
+(defun test-* ()
+  (check
+    (= (* 2 2) 4) ;; test case 测试用例
+    (= (* 3 5) 15)))
+Now that you have two test functions, you’ll probably want another function that runs all
+the tests. That’s easy enough.
+(defun test-arithmetic ()
+  (combine-results
+    (test-+)
+    (test-*)))
+
+;; 如果每个测试结果能够显示 每个测试用例来自哪个函数就好了
+;; 设计动态变量 就是为了这个目的
+;; Step 1 is to declare the variable at the top level.
+(defvar *test-name* nil) ;; 这就像上厕所一样，当进入厕所时，在门上挂上牌子，写着谁在里面！（此时没人）
+
+;; Step 2 修改 report-result
+(defun report-result (result form)
+  (format t "~:[FAIL~;pass~] ... ~a: ~a~%" result *test-name* form))
+
+;; Step 3
+(defun test-+ ()
+  (let ((*test-name* 'test-+)) ;; 这就像上厕所一样，当进入厕所时，在门上挂上牌子，写着谁在里面！
+    (check
+      (= (+ 1 2) 3)
+      (= (+ 1 2 3) 6)
+      (= (+ -1 -3) -4))))
+      
+(defun test-* ()
+  (let ((*test-name* 'test-*))
+    (check
+      (= (* 2 2) 4)
+      (= (* 3 5) 15))))
+Now the results are properly labeled.
+CL-USER> (test-arithmetic)
+pass ... TEST-+: (= (+ 1 2) 3)
+pass ... TEST-+: (= (+ 1 2 3) 6)
+pass ... TEST-+: (= (+ -1 -3) -4)
+pass ... TEST-*: (= (* 2 2) 4)
+pass ... TEST-*: (= (* 3 5) 15)
 
 
+## An Abstraction Emerges
+In fixing the test functions, you’ve introduced several new bits of duplication. Not only does
+each function have to include the name of the function twice—once as the name in the  DEFUN
+and once in the binding of *test-name*—but the same three-line code pattern is duplicated
+between the two functions. You could remove the duplication simply on the grounds that
+duplication is bad. But if you look more closely at the root cause of the duplication, you can
+learn an important lesson about how to use macros.
+在以上修复测试函数（test）的过程中，又引入了一些重复。不仅每个函数包括两次函数名——一次在 defun 中，
+一次在绑定 *test-name* 时，而且同样的三行代码模式被重复使用在两个函数中。你可以基于“重复是不好的”
+这个思想来消除重复。但是如果你更深入思考导致代码重复的根本/本质原因，你能够学到关于如何使用宏的最重要一课。
+The reason both these functions start the same way is because they’re both test functions.
+The duplication arises because, at the moment, test function is only half an abstraction. The
+abstraction exists in your mind, but in the code there’s no way to express “this is a test function”
+other than to write code that follows a particular pattern.
+这两个函数以相同的方式开始，是因为它们都是测试函数。重复是因为，此时，test function仅仅抽象了一半。
+都是测试函数这层抽象存在你的头脑中，但是在代码中还没有表达“这是个test function”，除非按照特定的模式来写代码。
+Unfortunately, partial abstractions are a crummy tool for building software. Because a half
+abstraction is expressed in code by a manifestation of the pattern, you’re guaranteed to have
+massive code duplication with all the normal bad consequences that implies for maintain-
+ability. More subtly, because the abstraction exists only in the minds of programmers, there’s
+no mechanism to make sure different programmers (or even the same programmer working at
+different times) actually understand the abstraction the same way. To make a complete
+abstraction, you need a way to express “this is a test function” and have all the code required
+by the pattern be generated for you. In other words, you need a macro.
+不幸的是，部分抽象对于构建软件来说是非常糟糕的。因为一半的抽象在代码中就是通过模式来表现的，因此必然会有大量的
+重复代码，它们将带有一切影响程序可维护性的不良后果。尤其是，因为这种抽象只存在于程序员的头脑中，没有什么机制能够使
+不同的程序员以同样的方式来理解它。（甚至同一个程序员在不同时期都不能）
+为了得到一个完整抽象，你需要用一种方法来表达“这是一个 test function”并且按照这种模式生成你所需要的代码。
+即，你需要使用宏！
+Because the pattern you’re trying to capture is a DEFUN plus some boilerplate code, you
+need to write a macro that will expand into a  DEFUN . You’ll then use this macro, instead of a
+plain DEFUN to define test functions, so it makes sense to call it deftest.
+由于试图捕捉的模式是一个 defun 加上一些样板代码，所以需要写个宏使其展开成 defun。然后使用该宏来定义测试函数，
+因此可以将其称为 deftest。
+(defmacro deftest (name parameters &body body)
+  `(defun ,name ,parameters
+      (let ((*test-name* ',name))
+        ,@body)))
+With this macro you can rewrite test-+ as follows:
+(deftest test-+ ()
+  (check
+    (= (+ 1 2) 3)
+    (= (+ 1 2 3) 6)
+    (= (+ -1 -3) -4)))
+
+## A Hierarchy of Tests
+给出 测试用例的完整路径
+If you define the test suite functions such as test-arithmetic with deftest and make a
+small change to the *test-name* bookkeeping, you can have results reported with a “fully qual-
+ified” path to the test case, something like this:
+如果用deftest来定义诸如 test-arithmetic 这样的测试套件，并对其中的 *test-name* 做个小改变，就可以用 测试
+用例的全称路径来报告测试结果，如下：
+pass ... (TEST-ARITHMETIC TEST-+): (= (+ 1 2) 3)
+
+Because you’ve already abstracted the process of defining a test function, you can change
+the bookkeeping details without modifying the code of the test functions. 6 To make *test-name*
+hold a list of test function names instead of just the name of the most recently entered test
+function, you just need to change this binding form:
+(let ((*test-name* ',name))
+to the following:
+(let ((*test-name* (append *test-name* (list ',name))))
+
+;; 7. As you’ll see in Chapter 12,  APPEND ing to the end of a list isn’t the most efficient way to build a list.
+;; But for now this is sufficient
+
+Since  APPEND returns a new list made up of the elements of its arguments, this version will
+bind *test-name* to a list containing the old contents of *test-name* with the new name tacked
+onto the end. 7 When each test function returns, the old value of *test-name* will be restored.
+Now you can redefine test-arithmetic with deftest instead of  DEFUN .
+(deftest test-arithmetic ()
+  (combine-results
+    (test-+)
+    (test-*)))
+The results now show exactly how you got to each test expression.
+CL-USER> (test-arithmetic)
+pass ... (TEST-ARITHMETIC TEST-+): (= (+ 1 2) 3)
+pass ... (TEST-ARITHMETIC TEST-+): (= (+ 1 2 3) 6)
+pass ... (TEST-ARITHMETIC TEST-+): (= (+ -1 -3) -4)
+pass ... (TEST-ARITHMETIC TEST-*): (= (* 2 2) 4)
+pass ... (TEST-ARITHMETIC TEST-*): (= (* 3 5) 15)
+T
+
+As your test suite grows, you can add new layers of test functions; as long as they’re defined
+with deftest, the results will be reported correctly. For instance, the following:
+(deftest test-math ()
+  (test-arithmetic))
+would generate these results:
+CL-USER> (test-math)
+pass ... (TEST-MATH TEST-ARITHMETIC TEST-+): (= (+ 1 2) 3)
+pass ... (TEST-MATH TEST-ARITHMETIC TEST-+): (= (+ 1 2 3) 6)
+pass ... (TEST-MATH TEST-ARITHMETIC TEST-+): (= (+ -1 -3) -4)
+pass ... (TEST-MATH TEST-ARITHMETIC TEST-*): (= (* 2 2) 4)
+pass ... (TEST-MATH TEST-ARITHMETIC TEST-*): (= (* 3 5) 15)
+T
 
 
+## Wrapping Up
+You could keep going, adding more features to this test framework. But as a framework for
+writing tests with a minimum of busywork and easily running them from the REPL, this is a
+reasonable start. Here’s the complete code, all 26 lines of it:
+(defvar *test-name* nil)
 
+(defmacro deftest (name parameters &body body)
+  "Define a test function. Within a test function we can call
+  other test functions or use 'check' to run individual test
+  cases."
+  `(defun ,name ,parameters
+      (let ((*test-name* (append *test-name* (list ',name))))
+        ,@body)))
 
+(defmacro check (&body forms)
+  "Run each expression in 'forms' as a test case."
+  `(combine-results
+    ,@(loop for f in forms collect `(report-result ,f ',f))))
 
+(defmacro combine-results (&body forms)
+  "Combine the results (as booleans) of evaluating 'forms' in order."
+  (with-gensyms (result)
+    `(let ((,result t))
+      ,@(loop for f in forms collect `(unless ,f (setf ,result nil)))
+      ,result)))
 
+(defun report-result (result form)
+  "Report the results of a single test case. Called by 'check'."
+  (format t "~:[FAIL~;pass~] ... ~a: ~a~%" result *test-name* form)
+   result)
 
+## 回顾整个构造过程（学习如何在 lisp 中编程）
+It’s worth reviewing how you got here because it’s illustrative of how programming in Lisp
+often goes.
+You started by defining a simple version of your problem——how to evaluate a bunch of
+boolean expressions and find out if they all returned true. Just  ANDing them together worked
+and was syntactically clean but revealed the need for better result reporting. So you wrote some
+really simpleminded code, chock-full of duplication and error-prone idioms that reported the
+results the way you wanted.
 
+The next step was to see if you could refactor the second version into something as clean
+as the former. You started with a standard refactoring technique of extracting some code into a
+function, report-result. Unfortunately, you could see that using report-result was going to
+be tedious and error-prone（易错的） since you had to pass the test expression twice, once for the value
+and once as quoted data. So you wrote the check macro to automate the details of calling
+report-result correctly.
 
+While writing check, you realized as long as you were generating code, you could make a
+single call to check to generate multiple calls to report-result, getting you back to a version of
+test-+ about as concise as the original AND version.
 
+At that point you had the check API nailed down, which allowed you to start mucking with
+how it worked on the inside. The next task was to fix check so the code it generated would return a
+boolean indicating whether all the test cases had passed. Rather than immediately hacking
+away at check, you paused to indulge（沉迷） in a little language design by fantasy. What if—you
+fantasized—there was already a non-short-circuiting（非短路的）  AND construct. Then fixing check would
+be trivial. Returning from fantasyland you realized there was no such construct but that you
+could write one in a few lines. After writing combine-results, the fix to check was indeed trivial.
 
+At that point all that was left was to make a few more improvements to the way you reported
+test results. Once you started making changes to the test functions, you realized those functions
+represented a special category of function that deserved its own abstraction. So you wrote
+deftest to abstract the pattern of code that turns a regular function into a test function.
 
+With deftest providing an abstraction barrier between the test definitions and the under-
+lying machinery, you were able to enhance the result reporting without touching the test functions.
 
-
-
-
-
-
-
-
-
-
-
-
+Now, with the basics of functions, variables, and macros mastered, and a little practical
+experience using them, you’re ready to start exploring Common Lisp’s rich standard library of
+functions and data types.
+CL 的丰富的 有着函数和数据类型的标准库
+;;
+;;
