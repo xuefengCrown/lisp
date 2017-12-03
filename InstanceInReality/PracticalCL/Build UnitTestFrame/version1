@@ -13,18 +13,18 @@
 ;; 没有对总的结果的反馈（需要逐条查看）
 ;; 太多代码重复
 
-(defun result-form (result form)
+(defun report-result (result form)
   (format t "~:[FAIL~;pass~] ... ~a~%" result form))
 (defun test-+ ()
-  (result-form (= (+ 1 2) 3) '(= (+ 1 2) 3))
-  (result-form (= (+ 1 2 3) 6) '(= (+ 1 2 3) 6))
-  (result-form (= (+ -1 -3) -4) '(= (+ -1 -3) -4)))
+  (report-result (= (+ 1 2) 3) '(= (+ 1 2) 3))
+  (report-result (= (+ 1 2 3) 6) '(= (+ 1 2 3) 6))
+  (report-result (= (+ -1 -3) -4) '(= (+ -1 -3) -4)))
   
 ;; v3-1
-;; (check (= (+ 1 2) 3))——> (result-form (= (+ 1 2) 3) '(= (+ 1 2) 3))
+;; (check (= (+ 1 2) 3))——> (report-result (= (+ 1 2) 3) '(= (+ 1 2) 3))
 (defmacro check (form)
-  `(result-form ,form ',form))
-;; 需要 result-form 函数
+  `(report-result ,form ',form))
+;; 需要 report-result 函数
 
 ;; 现在 test-+ 如下
 (defun test-+ ()
@@ -35,23 +35,23 @@
 
 ;; v3-2
 ;; 重新定义 check 宏
-(defmacro check2 (&body forms)
+(defmacro check (&body forms)
   `(progn
-    ,@(loop for f in forms collect `(result-form ,f ',f))))
+    ,@(loop for f in forms collect `(report-result ,f ',f))))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;    
-(macroexpand-1 '(check2 (= (+ 1 2) 3)
+(macroexpand-1 '(check (= (+ 1 2) 3)
                         (= (+ 1 2 3) 6)
                         (= (+ -1 -3) -4)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun test-+ ()
-  (check2 (= (+ 1 2) 3)
+  (check (= (+ 1 2) 3)
           (= (+ 1 2 3) 6)
           (= (+ -1 -3) -4)))
 
 ;; v4 fixing return value
 
-;; 修改 result-form 的返回值
-(defun result-form (result form)
+;; 修改 report-result 的返回值
+(defun report-result (result form)
   (format t "~:[FAIL~;pass~] ... ~a~%" result form)
   result)
 
@@ -62,7 +62,10 @@
   (unless (baz) (setf result nil))
   result)
 
-;; 对每个result-form 使用 unless 包装
+;; 对每个 report-result 使用 unless 包装
+(defmacro with-gensyms ((&rest names) &body body)
+  `(let ,(loop for n in names collect `(,n (gensym)))
+    ,@body))
 (defmacro combine-results (&body forms)
   (with-gensyms (result)
     `(let ((,result t))
@@ -70,7 +73,143 @@
     ,result)))
 
 (defmacro check (&body forms)
-  `(combine-results
+  `(combine-results ;; 调用check时，combine-results是不展开的！
     ,@(loop for f in forms collect `(report-result ,f ',f))))
 
 ;; 宏是怎么展开的???
+CL-USER> (macroexpand-1 '(check (test-+) (test-*)))
+(COMBINE-RESULTS
+  (REPORT-RESULT (TEST-+) '(TEST-+))
+  (REPORT-RESULT (TEST-*) '(TEST-*)))
+T
+
+CL-USER> (macroexpand-1 '(combine-results (test-+) (test-*)))
+(LET ((#:G601 T))
+  (UNLESS (TEST-+) (SETF #:G601 NIL))
+  (UNLESS (TEST-*) (SETF #:G601 NIL))
+  #:G601)
+T
+
+;; v5 Better Result Reporting
+;; 添加 test-*
+(defun test-* ()
+  (check
+    (= (* 2 2) 4) ;; test case 测试用例
+    (= (* 3 5) 15)))
+Now that you have two test functions, you’ll probably want another function that runs all
+the tests. That’s easy enough.
+(defun test-arithmetic ()
+  (combine-results
+    (test-+)
+    (test-*)))
+
+;; 如果每个测试结果能够显示 每个测试用例来自哪个函数就好了
+;; 设计动态变量 就是为了这个目的
+;; Step 1 is to declare the variable at the top level.
+(defvar *test-name* nil) ;; 这就像上厕所一样，当进入厕所时，在门上挂上牌子，写着谁在里面！（此时没人）
+
+;; Step 2 修改 report-result
+(defun report-result (result form)
+  (format t "~:[FAIL~;pass~] ... ~a: ~a~%" result *test-name* form))
+
+;; Step 3
+(defun test-+ ()
+  (let ((*test-name* 'test-+)) ;; 这就像上厕所一样，当进入厕所时，在门上挂上牌子，写着谁在里面！
+    (check
+      (= (+ 1 2) 3)
+      (= (+ 1 2 3) 6)
+      (= (+ -1 -3) -4))))
+      
+(defun test-* ()
+  (let ((*test-name* 'test-*))
+    (check
+      (= (* 2 2) 4)
+      (= (* 3 5) 15))))
+Now the results are properly labeled.
+CL-USER> (test-arithmetic)
+pass ... TEST-+: (= (+ 1 2) 3)
+pass ... TEST-+: (= (+ 1 2 3) 6)
+pass ... TEST-+: (= (+ -1 -3) -4)
+pass ... TEST-*: (= (* 2 2) 4)
+pass ... TEST-*: (= (* 3 5) 15)
+
+
+## An Abstraction Emerges
+在以上修复测试函数（test）的过程中，又引入了一些重复。不仅每个函数包括两次函数名——一次在 defun 中，
+一次在绑定 *test-name* 时，而且同样的三行代码模式被重复使用在两个函数中。你可以基于“重复是不好的”
+这个思想来消除重复。但是如果你更深入思考导致代码重复的根本/本质原因，你能够学到关于如何使用宏的最重要一课。
+
+这两个函数以相同的方式开始，是因为它们都是测试函数。重复是因为，此时，test function仅仅抽象了一半。
+都是测试函数这层抽象存在你的头脑中，但是在代码中还没有表达“这是个test function”，除非按照特定的模式来写代码。
+
+不幸的是，部分抽象对于构建软件来说是非常糟糕的。因为一半的抽象在代码中就是通过模式来表现的，因此必然会有大量的
+重复代码，它们将带有一切影响程序可维护性的不良后果。尤其是，因为这种抽象只存在于程序员的头脑中，没有什么机制能够使
+不同的程序员以同样的方式来理解它。（甚至同一个程序员在不同时期都不能）
+为了得到一个完整抽象，你需要用一种方法来表达“这是一个 test function”并且按照这种模式生成你所需要的代码。
+即，你需要使用宏！
+
+由于试图捕捉的模式是一个 defun 加上一些样板代码，所以需要写个宏使其展开成 defun。然后使用该宏来定义测试函数，
+因此可以将其称为 deftest。
+(defmacro deftest (name parameters &body body)
+  `(defun ,name ,parameters
+      (let ((*test-name* ',name))
+        ,@body)))
+With this macro you can rewrite test-+ as follows:
+(deftest test-+ ()
+  (check
+    (= (+ 1 2) 3)
+    (= (+ 1 2 3) 6)
+    (= (+ -1 -3) -4)))
+
+## A Hierarchy of Tests
+给出 测试用例的完整路径
+If you define the test suite functions such as test-arithmetic with deftest and make a
+small change to the *test-name* bookkeeping, you can have results reported with a “fully qual-
+ified” path to the test case, something like this:
+如果用deftest来定义诸如 test-arithmetic 这样的测试套件，并对其中的 *test-name* 做个小改变，就可以用 测试
+用例的全称路径来报告测试结果，如下：
+pass ... (TEST-ARITHMETIC TEST-+): (= (+ 1 2) 3)
+
+Because you’ve already abstracted the process of defining a test function, you can change
+the bookkeeping details without modifying the code of the test functions. 6 To make *test-name*
+hold a list of test function names instead of just the name of the most recently entered test
+function, you just need to change this binding form:
+(let ((*test-name* ',name))
+to the following:
+(let ((*test-name* (append *test-name* (list ',name))))
+
+;; 7. As you’ll see in Chapter 12,  APPEND ing to the end of a list isn’t the most efficient way to build a list.
+;; But for now this is sufficient
+
+Since  APPEND returns a new list made up of the elements of its arguments, this version will
+bind *test-name* to a list containing the old contents of *test-name* with the new name tacked
+onto the end. 7 When each test function returns, the old value of *test-name* will be restored.
+Now you can redefine test-arithmetic with deftest instead of  DEFUN .
+(deftest test-arithmetic ()
+  (combine-results
+    (test-+)
+    (test-*)))
+The results now show exactly how you got to each test expression.
+CL-USER> (test-arithmetic)
+pass ... (TEST-ARITHMETIC TEST-+): (= (+ 1 2) 3)
+pass ... (TEST-ARITHMETIC TEST-+): (= (+ 1 2 3) 6)
+pass ... (TEST-ARITHMETIC TEST-+): (= (+ -1 -3) -4)
+pass ... (TEST-ARITHMETIC TEST-*): (= (* 2 2) 4)
+pass ... (TEST-ARITHMETIC TEST-*): (= (* 3 5) 15)
+T
+
+As your test suite grows, you can add new layers of test functions; as long as they’re defined
+with deftest, the results will be reported correctly. For instance, the following:
+(deftest test-math ()
+  (test-arithmetic))
+would generate these results:
+CL-USER> (test-math)
+pass ... (TEST-MATH TEST-ARITHMETIC TEST-+): (= (+ 1 2) 3)
+pass ... (TEST-MATH TEST-ARITHMETIC TEST-+): (= (+ 1 2 3) 6)
+pass ... (TEST-MATH TEST-ARITHMETIC TEST-+): (= (+ -1 -3) -4)
+pass ... (TEST-MATH TEST-ARITHMETIC TEST-*): (= (* 2 2) 4)
+pass ... (TEST-MATH TEST-ARITHMETIC TEST-*): (= (* 3 5) 15)
+T
+
+;;
+;;
