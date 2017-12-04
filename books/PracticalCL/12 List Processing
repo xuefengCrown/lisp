@@ -1,0 +1,370 @@
+# 12 List Processing
+Lists play an important role in Lisp—for reasons both historical and practical. Historically,
+lists were Lisp’s original composite data type, though it has been decades since they were its
+only such data type. These days, a Common Lisp programmer is as likely to use a vector, a hash
+table, or a user-defined class or structure as to use a list.
+
+Practically speaking, lists remain in the language because they’re an excellent solution to
+certain problems. One such problem—how to represent code as data in order to support code-
+transforming and code-generating macros—is particular to Lisp, which may explain why other
+languages don’t feel the lack of Lisp-style lists. More generally, lists are an excellent data struc-
+ture for representing any kind of heterogeneous and/or hierarchical data. They’re also quite
+lightweight and support a functional style of programming that’s another important part of
+Lisp’s heritage.
+从实践上来讲，lists仍保留在语言中是因为它们能够为某些问题提供出色的解决方案。
+比如这样一个问题：如何把代码表示为数据以支持代码转换和生成代码的宏，这是特定于Lisp的，这也解释了
+为什么其他语言没有因为没有lists而感到不便。
+更一般地，lists是表达任何heterogeneous（consisting of parts or members that are very different from each other）
+的和分层的数据的极佳数据结构。它们也是轻量的，而且支持函数式编程风格，这是Lisp传统的一部分。
+
+Thus, you need to understand lists on their own terms; as you gain a better understanding
+of how lists work, you’ll be in a better position to appreciate when you should and shouldn’t
+use them.
+一旦你理解了lists是如何工作的，你将能领会到何时使用何时不使用它们。
+
+The key to understanding lists is to understand that they’re largely an illusion built on top of
+objects that are instances of a more primitive data type. Those simpler objects are pairs of
+values called cons cells, after the function CONS used to create them.
+理解list的关键在于，列表是构建在对象之上的想象物（这些对象是更基本数据类型的实例）。那些更简单的对象是
+被称为点对单元（cons cell）的数值对，使用cons函数可以创建它们。
+
+CONS takes two arguments and returns a new cons cell containing the two values. 2 These
+values can be references to any kind of object. Unless the second value is  NIL or another cons
+cell, a cons is printed as the two values in parentheses separated by a dot, a so-called dotted pair.
+(cons 1 2)  → (1 . 2)
+cons接受两个参数，返回包含这两个值的一个新的cons cell。这些值可以是任何对象的引用。
+
+Both  CAR and  CDR are also  SETF able places—given an existing cons cell, it’s possible to
+assign a new value to either of its values. 3
+(defparameter *cons* (cons 1 2))
+*cons* → (1 . 2)
+(setf (car *cons*) 10)  → 10
+*cons* → (10 . 2)
+(setf (cdr *cons*) 20)  → 20
+*cons* → (10 . 20)
+
+Because the values in a cons cell can be references to any kind of object, you can build
+larger structures out of cons cells by linking them together. Lists are built by linking together
+cons cells in a chain. The elements of the list are held in the  CAR s of the cons cells while the links
+to subsequent cons cells are held in the  CDR s. The last cell in the chain has a  CDR of  NIL , which—
+as I mentioned in Chapter 4—represents the empty list as well as the boolean value false.
+因为cons cell 中的值可以是任何对象的引用，因此你可以通过把cons cells链接在一起来构建更大型的结构。
+lists是点对链接起来的一条链。列表的元素保存在car中，而对后续点对的链接则保存在cdr中。
+最后一个点对的cdr是nil——代表一个empty list，也表示布尔值假。
+
+！！！什么是列表
+So when I say a particular value is a list, what I really mean is it’s either NIL or a reference
+to a cons cell. The  CAR of the cons cell is the first item of the list, and the  CDR is a reference to
+another list, that is, another cons cell or  NIL , containing the remaining elements. The Lisp
+printer understands this convention and prints such chains of cons cells as parenthesized lists
+rather than as dotted pairs.
+(cons 1 nil) → (1)
+(cons 1 (cons 2 nil)) → (1 2)
+(cons 1 (cons 2 (cons 3 nil)))  → (1 2 3)
+
+它要么是一个 NIL，要么是一个对一个 cons cell 的引用。这个cons cell的CAR是列表的第一个元素，
+它的CDR是对另一个列表的引用，存储余下的元素。
+;; 这个定义还有点不清晰。
+;; 去看下《Essentials of the programming language》中的定义
+
+FIRST REST 是 CAR CDR 同义词
+
+Because cons cells can hold any kind of values, so can lists. And a single list can hold
+objects of different types.
+(list "foo" (list 1 2) 10)  → ("foo" (1 2) 10)
+单一列表可以保存不同类型的对象。
+
+Because lists can have other lists as elements, you can also use them to represent trees of
+arbitrary depth and complexity. As such, they make excellent representations for any heteroge-
+neous, hierarchical data. Lisp-based XML processors, for instance, usually represent XML
+documents internally as lists. Another obvious example of tree-structured data is Lisp code
+itself. In Chapters 30 and 31 you’ll write an HTML generation library that uses lists of lists to
+represent the HTML to be generated. I’ll talk more next chapter about using cons cells to repre-
+sent other data structures.
+因为列表可以将其他列表作为元素， 所以你可以使用列表表示任意深度和复杂度的树。
+由此，它们可以作为任何异构，分层的数据的表示方式。（不理解所谓异构的，查查heterogeneous的英文解释）
+基于Lisp的XML处理器通常在内部将 XML 文档表示成 list。
+另一个树结构数据的例子是 Lisp代码自身。
+在第 30 和 31 章，你会写一个生成 HTML 的库，它使用lists of lists来表示将生成的 HTML。
+下一章，我将讨论更多关于使用 cons cells 表示其他数据结构。
+
+Common Lisp provides quite a large library of functions for manipulating lists. In the sections
+“List-Manipulation Functions” and “Mapping,” you’ll look at some of the more important of
+these functions. However, they will be easier to understand in the context of a few ideas
+borrowed from functional programming.
+CL提供了一个相当大的用来操纵列表的函数库。借助函数式编程的观念来看待这些函数，将更容易理解。
+
+
+## Functional Programming and Lists
+函数式编程的本质在于，程序完全由没有副作用的函数构成，也即是说，这些函数仅仅基于参数值来计算结果。
+函数式风格的优势是它使得程序更容易理解。在消除副作用的同时也消除了所有超距作用的可能。（超距作用？？？）
+因为函数的结果只决定于它的参数的值，因此它的behavior更容易理解和测试。
+例如，当你看到表达式 (+ 3 4)，你知道，它的结果被 + 函数的定义以及3和4的值 唯一确定。
+你不要担心这段程序被执行之前发生的事，因为没有什么能够改变该表达式的求值结果。
+The essence of functional programming is that programs are built entirely of functions with no
+side effects that compute their results based solely on the values of their arguments. The advan-
+tage of the functional style is that it makes programs easier to understand. Eliminating side
+effects eliminates almost all possibilities for action at a distance. And since the result of a func-
+tion is determined only by the values of its arguments, its behavior is easier to understand and
+test. For instance, when you see an expression such as (+ 3 4), you know the result is uniquely
+determined by the definition of the  + function and the values 3 and 4. You don’t have to worry
+about what may have happened earlier in the execution of the program since there’s nothing
+that can change the result of evaluating that expression.
+处理数字的函数天生就是函数式的，因为数字是不可变的。
+另一方面，列表是可变的。（使用 setf 对car cdr 操作）
+然而，列表可以被当作函数式的数据类型，只要将其值视作只由它们包含的元素决定即可。
+因此，形式(1 2 3 4)表示的任何列表在函数式意义上都等价于任何其他含有这四个元素的列表。无论实际表示
+该列表的是什么点对单元。并且，任何以列表为参数且返回值完全依赖于列表内容的函数，都可以被认为是函数式的。
+如，reverse函数，当给定列表(1 2 3 4)时，总是返回列表(4 3 2 1)。以函数式等价的列表作为参数对reverse的不同调用将返回
+函数式等价的列表。
+函数式编程的另一方面，我将在“Mapping”一节讨论的，是高阶函数（high-order func）的应用：CL的大多数操纵列表
+的函数都是函数式风格的。稍后我将讨论如何混合函数式与其他编程风格，但首先要理解函数式风格应用在列表上的微妙之处。
+Functions that deal with numbers are naturally functional since numbers are immutable.
+A list, on the other hand, can be mutated, as you’ve just seen, by  SETF ing the  CAR s and  CDR s of
+the cons cells that make up its backbone. However, lists can be treated as a functional data type
+if you consider their value to be determined by the elements they contain. Thus, any list of the
+form (1 2 3 4) is functionally equivalent to any other list containing those four values, regard-
+less of what cons cells are actually used to represent the list. And any function that takes a list
+as an argument and returns a value based solely on the contents of the list can likewise be
+considered functional. For instance, the  REVERSE sequence function, given the list (1 2 3 4),
+always returns a list (4 3 2 1). Different calls to REVERSE with functionally equivalent lists as
+the argument will return functionally equivalent result lists. Another aspect of functional
+programming, which I’ll discuss in the section “Mapping,” is the use of higher-order functions:
+functions that treat other functions as data, taking them as arguments or returning them as results.
+Most of Common Lisp’s list-manipulation functions are written in a functional style. I’ll
+discuss later how to mix functional and other coding styles, but first you should understand a
+few subtleties of the functional style as applied to lists.
+
+The reason most list functions are written functionally is it allows them to return results
+that share cons cells with their arguments. To take a concrete example, the function  APPEND
+takes any number of list arguments and returns a new list containing the elements of all its
+arguments. For instance:
+(append (list 1 2) (list 3 4))  → (1 2 3 4)
+大多数列表函数是函数式风格的原因是，这样能够允许它们的返回结果和它们的参数共享cons cells。
+具体例子，append 函数。
+
+From a functional point of view,  APPEND ’s job is to return the list (1 2 3 4) without modi-
+fying any of the cons cells in the lists (1 2) and (3 4). One obvious way to achieve that goal is
+to create a completely new list consisting of four new cons cells. However, that’s more work
+than is necessary. Instead,  APPEND actually makes only two new cons cells to hold the values 1
+and 2, linking them together and pointing the  CDR of the second cons cell at the head of the last
+argument, the list (3 4). It then returns the cons cell containing the 1.
+
+In general,  APPEND must copy all but its last argument, but it can always return a result that
+shares structure with the last argument.
+
+## “Destructive” Operations
+If Common Lisp were a purely functional language, that would be the end of the story. However,
+because it’s possible to modify a cons cell after it has been created by  SETF ing its  CAR or  CDR ,
+you need to think a bit about how side effects and structure sharing mix.
+Because of Lisp’s functional heritage, operations that modify existing objects are called
+destructive—in functional programming, changing an object’s state “destroys” it since it no
+longer represents the same value. However, using the same term to describe all state-modifying
+operations leads to a certain amount of confusion since there are two very different kinds of
+destructive operations, for-side-effect operations and recycling operations. 
+然而，使用同一术语来描述所有的状态修改操作会在一定程度上产生误解，因为存在两种不同的“破坏性操作”，
+副作用性 操作 和 回收性操作。
+
+However, if you mix nonfunctional, for-side-effect operations with functions that return structure-sharing results, 
+then you need to be careful not to inadvertently（非故意地） modify the shared structure. 
+
+回收性操作不仅重用原列表参数，还会修改它。（把cons cell作为原材料，修改它的car和cdr以构造自己想要的结果）
+On the other hand, the other kind of destructive operations, recycling operations, are intended
+to be used in functional code. They use side effects only as an optimization. In particular, they
+reuse certain cons cells from their arguments when building their result. However, unlike functions
+such as  APPEND that reuse cons cells by including them, unmodified, in the list they return,
+recycling functions reuse cons cells as raw material, modifying the  CAR and  CDR as necessary to
+build the desired result. Thus, recycling functions can be used safely only when the original
+lists aren’t going to be needed after the call to the recycling function.
+
+Thus, recycling functions can be used safely only when the original
+lists aren’t going to be needed after the call to the recycling function.
+只由当原始列表在回收性函数调用后不再使用时，回收性函数才能安全使用。
+
+To see how a recycling function works, let’s compare  REVERSE , the nondestructive function
+that returns a reversed version of a sequence, to  NREVERSE , a recycling version of the same
+function. Because  REVERSE doesn’t modify its argument, it must allocate a new cons cell for
+each element in the list being reversed. But suppose you write something like this:
+(setf *list* (reverse *list*))
+By assigning the result of  REVERSE back to *list*, you’ve removed the reference to the
+original value of *list*. Assuming the cons cells in the original list aren’t referenced anywhere
+else, they’re now eligible to be garbage collected. However, in many Lisp implementations it’d
+be more efficient to immediately reuse the existing cons cells rather than allocating new ones
+and letting the old ones become garbage.
+NREVERSE allows you to do exactly that. The N stands for non-consing, meaning it doesn’t
+need to allocate any new cons cells. The exact side effects of  NREVERSE are intentionally not
+specified—it’s allowed to modify any  CAR or  CDR of any cons cell in the list—but a typical imple-
+mentation might walk down the list changing the  CDR of each cons cell to point to the previous
+cons cell, eventually returning the cons cell that was previously the last cons cell in the old list
+and is now the head of the reversed list. No new cons cells need to be allocated, and no garbage
+is created.
+Most recycling functions, like  NREVERSE , have nondestructive counterparts that compute
+the same result. In general, the recycling functions have names that are the same as their non-
+destructive counterparts except with a leading N. However, not all do, including several of the
+more commonly used recycling functions such as  NCONC , the recycling version of  APPEND , and
+DELETE ,  DELETE-IF ,  DELETE-IF-NOT , and  DELETE-DUPLICATES , the recycling versions of the
+REMOVE family of sequence functions.
+
+
+## Combining Recycling with Shared Structure
+使事情更糟糕的是，共享结构和回收性函数是用于不同目的的。非破坏性列表函数——基于cons cell不会被修改的假设——返回具共享结构的列表，
+但是回收性函数是通过破坏这种假设而起作用的，换个说法，共享结构是基于不在乎列表是由哪些cons cells构成，然而，使用
+回收性函数需要你准确知道哪些点对单元会在哪里被引用。
+To make matters worse, shared structure and recycling functions tend to work at cross-
+purposes. Nondestructive list functions return lists that share structure under the assumption
+that cons cells are never modified, but recycling functions work by violating that assumption.
+Or, put another way, sharing structure is based on the premise that you don’t care exactly what
+cons cells make up a list while using recycling functions requires that you know exactly what
+cons cells are referenced from where.
+实践中，回收性函数会有一些习惯性用法。目前最常见的一种是，构建一个列表，它是由一个在列表前端不断
+做点对分配操作的函数返回，通常是将元素push进一个保存在局部变量的列表里，然后然后 NREVERSE后的结果。
+In practice, recycling functions tend to be used in a few idiomatic ways. By far the most
+common recycling idiom is to build up a list to be returned from a function by “consing” onto
+the front of a list, usually by PUSH ing elements onto a list stored in a local variable and then
+returning the result of NREVERSE ing it. 7
+This is an efficient way to build a list because each PUSH has to create only one cons cell
+and modify a local variable and the NREVERSE just has to zip down the list reassigning the  CDR s.
+Because the list is created entirely within the function, there’s no danger any code outside the
+function has a reference to any of its cons cells. Here’s a function that uses this idiom to build
+a list of the first n numbers, starting at zero: 
+这是一种高效构建列表的方式，因为每次push操作只需要创建一个 cons cell 并修改一次局部变量，最后 nreverse
+只需穿过列表并重新赋值每个元素的cdr。
+因为列表完全是在函数内部创建的，因此也就没有任何外部代码会引用它的cons cell 的风险。
+下面的函数，使用这种方法创建一个由 0 开始的前 n 个数字组成的列表：
+(defun upto (max)
+  (let ((result nil))
+    (dotimes (i max)
+      (push i result))
+    (nreverse result)))
+(upto 10)  → (0 1 2 3 4 5 6 7 8 9)
+
+The next most common recycling idiom 9 is to immediately reassign the value returned by
+the recycling function back to the place containing the potentially recycled value. For instance,
+you’ll often see expressions like the following, using  DELETE , the recycling version of  REMOVE :
+(setf foo (delete nil foo))
+
+This sets the value of foo to its old value except with all the  NIL s removed. However, even
+this idiom must be used with some care—if foo shares structure with lists referenced elsewhere,
+using  DELETE instead of  REMOVE can destroy the structure of those other lists. 
+
+
+The  PUSH / NREVERSE and  SETF / DELETE idioms probably account for 80 percent of the uses
+of recycling functions. Other uses are possible but require keeping careful track of which func-
+tions return shared structure and which do not.
+In general, when manipulating lists, it’s best to write your own code in a functional style—
+your functions should depend only on the contents of their list arguments and shouldn’t
+modify them. Following that rule will, of course, rule out（排除） using any destructive functions, 
+recycling or otherwise. Once you have your code working, if profiling shows you need to optimize,
+you can replace nondestructive list operations with their recycling counterparts but only if
+you’re certain the argument lists aren’t referenced from anywhere else.
+先使用绝对函数式风格来写操纵列表的程序，排除使用任何破坏性函数和回收性操作。
+代码运行后，性能分析显示需要优化的话，你可以将非破坏性列表操作替换成相应的回收性操作，但要
+小心只由其他任何位置不会引用实参列表时才可以这么做。
+
+One last gotcha to watch out for is that the sorting functions SORT ,  STABLE-SORT , and
+MERGE mentioned in Chapter 11 are also recycling functions when applied to lists. 10 However,
+these functions don’t have nondestructive counterparts, so if you need to sort a list without
+destroying it, you need to pass the sorting function a copy made with  COPY-LIST . In either case
+you need to be sure to save the result of the sorting function because the original argument is
+likely to be in tatters. For instance:
+最后要注意的是，当 sort, stable-sort, merge作用于列表时，它们也是回收性函数。然而它们都没有相对应的非破坏性版本，
+所以如果你需要排序列表而又不想破坏它的话，你需要先用copy-list生成列表的副本然后传递给sort。
+而且你需要保存排序结果，因为原来的列表很可能已经一团糟的。例如：
+CL-USER> (defparameter *list* (list 4 3 2 1))
+*LIST*
+CL-USER> (sort *list* #'<)
+(1 2 3 4) ; looks good
+CL-USER> *list*
+(4) ; whoops!
+
+
+## List-Manipulation Functions
+
+You’ve already seen the basic functions for getting at the elements of a list: FIRST and
+REST . Although you can get at any element of a list by combining enough calls to REST (to move
+down the list) with a FIRST (to extract the element), that can be a bit tedious. 
+So Common Lisp provides functions named for the other ordinals from SECOND to TENTH that return the 
+appropriate element. More generally, the function NTH takes two arguments, an index and a list, and
+returns the nth (zero-based) element of the list. Similarly,  NTHCDR takes an index and a list and
+returns the result of calling  CDR n times. (Thus, (nthcdr 0 ...) simply returns the original list,
+and (nthcdr 1 ...) is equivalent to REST .) Note, however, that none of these functions is any
+more efficient, in terms of work done by the computer, than the equivalent combinations of
+FIRST s and REST s—there’s no way to get to the nth element of a list without following n  CDR
+references. 11
+The 28 composite  CAR / CDR functions are another family of functions you may see used
+from time to time. Each function is named by placing a sequence of up to four As and Ds between
+a C and R, with each A representing a call to  CAR and each D a call to  CDR . Thus:
+(caar list)  ≡ (car (car list))
+(cadr list)  ≡ (car (cdr list))
+(cadadr list)  ≡ (car (cdr (car (cdr list))))
+
+Note, however, that many of these functions make sense only when applied to lists that
+contain other lists. For instance,  CAAR extracts the  CAR of the  CAR of the list it’s given; thus, the
+list it’s passed must contain another list as its first element. In other words, these are really
+functions on trees rather than lists:
+(caar (list 1 2 3)) → error
+(caar (list (list 1 2) 3)) → 1
+(cadr (list (list 1 2) (list 3 4))) → (3 4)
+(caadr (list (list 1 2) (list 3 4)))  → 3
+These functions aren’t used as often now as in the old days. And even the most die-hard
+old-school Lisp hackers tend to avoid the longer combinations. However, they’re used quite a
+bit in older Lisp code, so it’s worth at least understanding how they work.12
+
+12. In particular, they used to be used to extract the various parts of expressions passed to macros
+before the invention of destructuring parameter lists. For example, you could take apart the
+following expression:
+(when (> x 10) (print x))
+like this:
+;; the condition
+(cadr '(when (> x 10) (print x)))  → (> X 10)
+;; the body, as a list
+(cddr '(when (> x 10) (print x)))  → ((PRINT X))
+
+
+CONSP     Predicate to test whether an object is a cons cell.
+ATOM      Predicate to test whether an object is not a cons cell.
+LISTP     Predicate to test whether an object is either a cons cell or NIL .
+NULL      Predicate to test whether an object is  NIL . Functionally equivalent to NOT
+          but stylistically preferable when testing for an empty list as opposed to
+          boolean false.
+
+
+## Mapping
+Another important aspect of the functional style is the use of higher-order functions, functions
+that take other functions as arguments or return functions as values. You saw several examples
+of higher-order functions, such as MAP , in the previous chapter. Although  MAP can be used with
+both lists and vectors (that is, with any kind of sequence), Common Lisp also provides six mapping
+functions specifically for lists. The differences between the six functions have to do with how
+they build up their result and whether they apply the function to the elements of the list or to
+the cons cells of the list structure.
+
+MAPCAR is the function most like  MAP . Because it always returns a list, it doesn’t require the
+result-type argument  MAP does. Instead, its first argument is the function to apply, and subse-
+quent arguments are the lists whose elements will provide the arguments to the function.
+
+Otherwise, it behaves like  MAP : the function is applied to successive elements of the list argu-
+ments, taking one element from each list per application of the function. The results of each
+function call are collected into a new list. For example:
+(mapcar #'(lambda (x) (* 2 x)) (list 1 2 3))  → (2 4 6)
+(mapcar #'+ (list 1 2 3) (list 10 20 30))  → (11 22 33)
+
+
+MAPLIST is just like  MAPCAR except instead of passing the elements of the list to the function,
+it passes the actual cons cells. 13 Thus, the function has access not only to the value of each
+element of the list (via the  CAR of the cons cell) but also to the rest of the list (via the  CDR ).
+MAPCAN and  MAPCON work like  MAPCAR and  MAPLIST except for the way they build up their
+result. While  MAPCAR and  MAPLIST build a completely new list to hold the results of the function
+calls,  MAPCAN and  MAPCON build their result by splicing together the results—which must be
+lists—as if by  NCONC . Thus, each function invocation can provide any number of elements to be
+included in the result. 14 MAPCAN , like  MAPCAR , passes the elements of the list to the mapped
+function while  MAPCON , like  MAPLIST , passes the cons cells.
+
+
+## Other Structures
+While cons cells and lists are typically considered to be synonymous, that’s not quite right—as
+I mentioned earlier, you can use lists of lists to represent trees. Just as the functions discussed
+in this chapter allow you to treat structures built out of cons cells as lists, other functions allow
+you to use cons cells to represent trees, sets, and two kinds of key/value maps. I’ll discuss some
+of those functions in the next chapter.
+;;
+;;
