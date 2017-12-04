@@ -1,0 +1,185 @@
+# Files and File I/O
+
+输入流/输出流 看对于谁来说的
+
+一般以程序（打开文件者）来说，输入流即向该程序输入，输出流即从该程序输出。
+
+Common Lisp provides a rich library of functionality for dealing with files. In this chapter I’ll
+focus on a few basic file-related tasks: reading and writing files and listing files in the file system. 
+For these basic tasks, Common Lisp’s I/O facilities are similar to those in other languages. Common
+Lisp provides a stream abstraction for reading and writing data and an abstraction, called
+pathnames, for manipulating filenames in an operating system–independent way. Additionally,
+Common Lisp provides other bits of functionality unique to Lisp such as the ability to read and
+write s-expressions.
+
+## Reading File Data
+The most basic file I/O task is to read the contents of a file. You obtain a stream from which you
+can read a file’s contents with the OPEN function. By default OPEN returns a character-based
+input stream you can pass to a variety of functions that read one or more characters of text:
+READ-CHAR reads a single character;  
+READ-LINE reads a line of text, returning it as a string with the end-of-line character(s) removed; 
+and  READ reads a single s-expression, returning a Lisp object. 
+When you’re done with the stream, you can close it with the  CLOSE function.
+
+The reading functions— READ-CHAR ,  READ-LINE , and  READ —all take an optional argument,
+which defaults to true, that specifies whether they should signal an error if they’re called at the
+end of the file. If that argument is  NIL , they instead return the value of their third argument,
+which defaults to  NIL . Thus, you could print all the lines in a file like this:
+(defun read-file (fname)
+  (let ((in (open fname :if-does-not-exist nil)))
+    (when in
+      (loop for line = (read-line in nil)
+	   while line do (format t "~a~%" line))
+      (close in))))
+Of the three text-reading functions,  READ is unique to Lisp. This is the same function that
+provides the R in the REPL and that’s used to read Lisp source code. Each time it’s called, it
+reads a single s-expression, skipping whitespace and comments, and returns the Lisp object
+denoted by the s-expression. For instance, suppose /some/file/name.txt has the following
+contents:
+(1 2 3)
+456
+"a string" ; this is a comment
+((a b)
+(c d))
+In other words, it contains four s-expressions: a list of numbers, a number, a string, and a
+list of lists. You can read those expressions like this:
+
+CL-USER> (defparameter *s* (open "/some/file/name.txt"))
+*S*
+CL-USER> (read *s*)
+(1 2 3)
+CL-USER> (read *s*)
+456
+CL-USER> (read *s*)
+"a string"
+CL-USER> (read *s*)
+((A B) (C D))
+CL-USER> (close *s*)
+T
+
+As you saw in Chapter 3, you can use  PRINT to print Lisp objects in “readable” form. Thus,
+whenever you need to store a bit of data in a file,  PRINT and  READ provide an easy way to do it
+without having to design a data format or write a parser. They even—as the previous example
+demonstrated—give you comments for free. And because s-expressions were designed to be
+human editable, it’s also a fine format for things like configuration files. 
+
+
+## Reading Binary Data
+By default  OPEN returns character streams, which translate the underlying bytes to characters
+according to a particular character-encoding scheme. 2 To read the raw bytes, you need to pass
+OPEN an :element-type argument of '(unsigned-byte 8). 3 You can pass the resulting stream to
+the function  READ-BYTE , which will return an integer between 0 and 255 each time it’s called.
+READ-BYTE , like the character-reading functions, also accepts optional arguments to specify
+whether it should signal an error if called at the end of the file and what value to return if not.
+In Chapter 24 you’ll build a library that allows you to conveniently read structured binary data
+using  READ-BYTE.
+
+## File Output
+To write data to a file, you need an output stream, which you obtain by calling  OPEN with a
+:direction keyword argument of :output. When opening a file for output,  OPEN assumes the
+file shouldn’t already exist and will signal an error if it does. However, you can change that
+behavior with the :if-exists keyword argument. Passing the value :supersede tells  OPEN to
+replace the existing file. Passing :append causes  OPEN to open the existing file such that new
+data will be written at the end of the file, while :overwrite returns a stream that will overwrite
+existing data starting from the beginning of the file. And passing  NIL will cause  OPEN to return
+NIL instead of a stream if the file already exists. A typical use of  OPEN for output looks like this:
+(open "/some/file/name.txt" :direction :output :if-exists :supersede)
+
+Common Lisp also provides several functions for writing data:  WRITE-CHAR writes a single
+character to the stream.  WRITE-LINE writes a string followed by a newline, which will be output
+as the appropriate end-of-line character or characters for the platform. Another function,
+WRITE-STRING , writes a string without adding any end-of-line characters. Two different func-
+tions can print just a newline:  TERPRI —short for “terminate print”—unconditionally prints
+a newline character, and  FRESH-LINE prints a newline character unless the stream is at the
+beginning of a line.  FRESH-LINE is handy when you want to avoid spurious blank lines in
+textual output generated by different functions called in sequence. For example, suppose you
+have one function that generates output that should always be followed by a line break and
+another that should start on a new line. But assume that if the functions are called one after the
+other, you don’t want a blank line between the two bits of output. If you use  FRESH-LINE at the
+beginning of the second function, its output will always start on a new line, but if it’s called
+right after the first, it won’t emit an extra line break.
+Several functions output Lisp data as s-expressions:  PRINT prints an s-expression preceded
+by an end-of-line and followed by a space.  PRIN1 prints just the s-expression. And the function
+PPRINT prints s-expressions like  PRINT and  PRIN1 but using the “pretty printer,” which tries to
+print its output in an aesthetically pleasing way.
+However, not all objects can be printed in a form that  READ will understand. The variable
+*PRINT-READABLY* controls what happens if you try to print such an object with  PRINT ,  PRIN1 ,
+or  PPRINT . When it’s  NIL , these functions will print the object in a special syntax that’s guaran-
+teed to cause  READ to signal an error if it tries to read it; otherwise they will signal an error rather
+than print the object.
+Another function,  PRINC , also prints Lisp objects, but in a way designed for human
+consumption. For instance,  PRINC prints strings without quotation marks. You can generate
+more elaborate text output with the incredibly flexible if somewhat arcane  FORMAT function. I’ll
+discuss some of the more important details of  FORMAT , which essentially defines a mini-language
+for emitting formatted output, in Chapter 18.
+To write binary data to a file, you have to  OPEN the file with the same :element-type argument
+as you did to read it: '(unsigned-byte 8). You can then write individual bytes to the stream
+with  WRITE-BYTE 
+
+
+## Closing Files
+As anyone who has written code that deals with lots of files knows, it’s important to close files
+when you’re done with them, because file handles tend to be a scarce resource. If you open
+files and don’t close them, you’ll soon discover you can’t open any more files.
+
+(let ((stream (open "/some/file/name.txt")))
+;; do stuff with stream
+  (close stream))
+However, this approach suffers from two problems. One is simply that it’s error prone—
+if you forget the  CLOSE , the code will leak a file handle every time it runs. The other—and more
+significant—problem is that there’s no guarantee you’ll get to the  CLOSE . For instance, if the
+code prior to the  CLOSE contains a  RETURN or  RETURN-FROM , you could leave the  LET without
+closing the stream. Or, as you’ll see in Chapter 19, if any of the code before the  CLOSE signals an
+error, control may jump out of the  LET to an error handler and never come back to close the
+stream.
+Common Lisp provides a general solution to the problem of how to ensure that certain
+code always runs: the special operator  UNWIND-PROTECT , which I’ll discuss in Chapter 20.
+However, because the pattern of opening a file, doing something with the resulting stream, and
+then closing the stream is so common, Common Lisp provides a macro,  WITH-OPEN-FILE ,
+built on top of  UNWIND-PROTECT , to encapsulate this pattern. This is the basic form:
+(with-open-file (stream-var open-argument*)
+  body-form*)
+The forms in body-forms are evaluated with stream-var bound to a file stream opened by a
+call to  OPEN with open-arguments as its arguments.  WITH-OPEN-FILE then ensures the stream
+in stream-var is closed before the  WITH-OPEN-FILE form returns. Thus, you can write this to
+read a line from a file:
+(with-open-file (stream "/some/file/name.txt")
+  (format t "~a~%" (read-line stream)))
+To create a new file, you can write something like this:
+(with-open-file (stream "/some/file/name.txt" :direction :output)
+  (format stream "Some text."))
+
+You’ll probably use  WITH-OPEN-FILE for 90–99 percent of the file I/O you do—the only
+time you need to use raw  OPEN and  CLOSE calls is if you need to open a file in a function and
+keep the stream around after the function returns. In that case, you must take care to eventually
+close the stream yourself, or you’ll leak file descriptors and may eventually end up unable to
+open any more files.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
