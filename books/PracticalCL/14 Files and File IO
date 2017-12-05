@@ -156,30 +156,191 @@ close the stream yourself, or you’ll leak file descriptors and may eventually 
 open any more files.
 
 
+## Filenames
+So far you’ve used strings to represent filenames. However, using strings as filenames ties your
+code to a particular operating system and file system. Likewise, if you programmatically
+construct names according to the rules of a particular naming scheme (separating directories
+with /, say), you also tie your code to a particular file system.
+
+Most places a filename is called for, you can use either a namestring or a pathname. Which
+to use depends mostly on where the name originated. Filenames provided by the user—for
+example, as arguments or as values in configuration files—will typically be namestrings, since
+the user knows what operating system they’re running on and shouldn’t be expected to care
+about the details of how Lisp represents filenames. But programmatically generated filenames
+will be pathnames because you can create them portably. A stream returned by  OPEN also
+represents a filename, namely, the filename that was originally used to open the stream.
+Together these three types are collectively referred to as pathname designators. All the built-in
+functions that expect a filename argument accept all three types of pathname designator. For
+instance, all the places in the previous section where you used a string to represent a filename,
+you could also have passed a pathname object or a stream.
+
+## How Pathnames Represent Filenames
+
+A pathname is a structured object that represents a filename using six components: host, device,
+directory, name, type, and version. Most of these components take on atomic values, usually
+strings; only the directory component is further structured, containing a list of directory names
+(as strings) prefaced with the keyword :absolute or :relative. However, not all pathname
+components are needed on all platforms—this is one of the reasons pathnames strike many
+new Lispers as gratuitously complex. On the other hand, you don’t really need to worry about
+which components may or may not be used to represent names on a particular file system
+unless you need to create a new pathname object from scratch, which you’ll almost never need
+to do. Instead, you’ll usually get hold of pathname objects either by letting the implementation
+parse a file system–specific namestring into a pathname object or by creating a new pathname
+that takes most of its components from an existing pathname.
+For instance, to translate a namestring to a pathname, you use the  PATHNAME function. It
+takes a pathname designator and returns an equivalent pathname object. When the designator
+is already a pathname, it’s simply returned. When it’s a stream, the original filename is extracted
+and returned. When the designator is a namestring, however, it’s parsed according to the local
+filename syntax. The language standard, as a platform-neutral document, doesn’t specify any
+particular mapping from namestring to pathname, but most implementations follow the same
+conventions on a given operating system.
+
+On Unix file systems, only the directory, name, and type components are typically used.
+On Windows, one more component—usually the device or host—holds the drive letter. On
+these platforms, a namestring is parsed by first splitting it into elements on the path separator—
+a slash on Unix and a slash or backslash on Windows. The drive letter on Windows will be
+placed into either the device or the host component. All but the last of the other name elements
+are placed in a list starting with :absolute or :relative depending on whether the name
+(ignoring the drive letter, if any) began with a path separator. This list becomes the directory
+component of the pathname. The last element is then split on the rightmost dot, if any, and the
+two parts put into the name and type components of the pathname. 7
+You can examine these individual components of a pathname with the functions
+PATHNAME-DIRECTORY ,  PATHNAME-NAME , and  PATHNAME-TYPE .
+(pathname-directory (pathname "/foo/bar/baz.txt"))  → (:ABSOLUTE "foo" "bar")
+(pathname-name (pathname "/foo/bar/baz.txt")) → "baz"
+(pathname-type (pathname "/foo/bar/baz.txt")) → "txt"
+Three other functions— PATHNAME-HOST ,  PATHNAME-DEVICE , and  PATHNAME-VERSION —
+allow you to get at the other three pathname components, though they’re unlikely to have
+interesting values on Unix. On Windows either  PATHNAME-HOST or  PATHNAME-DEVICE will
+return the drive letter.
+Like many other built-in objects, pathnames have their own read syntax, #p followed by a
+double-quoted string. This allows you to print and read back s-expressions containing pathname
+objects, but because the syntax depends on the namestring parsing algorithm, such data isn’t
+necessarily portable between operating systems.
+(pathname "/foo/bar/baz.txt")  → #p"/foo/bar/baz.txt"
+To translate a pathname back to a namestring—for instance, to present to the user—
+you can use the function  NAMESTRING , which takes a pathname designator and returns a
+namestring. Two other functions,  DIRECTORY-NAMESTRING and  FILE-NAMESTRING , return a
+partial namestring.  DIRECTORY-NAMESTRING combines the elements of the directory component
+into a local directory name, and  FILE-NAMESTRING combines the name and type components. 8
+(namestring #p"/foo/bar/baz.txt") → "/foo/bar/baz.txt"
+(directory-namestring #p"/foo/bar/baz.txt")  → "/foo/bar/"
+(file-namestring #p"/foo/bar/baz.txt") → "baz.txt"
 
 
+## Constructing New Pathnames
+
+You can construct arbitrary pathnames using the  MAKE-PATHNAME function. It takes one
+keyword argument for each pathname component and returns a pathname with any supplied
+components filled in and the rest  NIL . 9
+(make-pathname
+:directory '(:absolute "foo" "bar")
+:name "baz"
+:type "txt")  → #p"/foo/bar/baz.txt"
+However, if you want your programs to be portable, you probably don’t want to make
+pathnames completely from scratch: even though the pathname abstraction protects you from
+unportable filename syntax, filenames can be unportable in other ways. For instance, the file-
+name /home/peter/foo.txt is no good on an OS X box where /home/ is called /Users/.
+Another reason not to make pathnames completely from scratch is that different imple-
+mentations use the pathname components slightly differently. For instance, as mentioned
+previously, some Windows-based Lisp implementations store the drive letter in the device
+component while others store it in the host component. If you write code like this:
+(make-pathname :device "c" :directory '(:absolute "foo" "bar") :name "baz")
+it will be correct on some implementations but not on others.
+Rather than making names from scratch, you can build a new pathname based on an
+existing pathname with  MAKE-PATHNAME ’s keyword parameter :defaults. With this parameter
+you can provide a pathname designator, which will supply the values for any components not
+specified by other arguments. For example, the following expression creates a pathname
+with an .html extension and all other components the same as the pathname in the variable
+input-file:
+(make-pathname :type "html" :defaults input-file)
+Assuming the value in input-file was a user-provided name, this code will be robust in
+the face of operating system and implementation differences such as whether filenames have
+drive letters in them and where they’re stored in a pathname if they do. 10
+You can use the same technique to create a pathname with a different directory component.
+(make-pathname :directory '(:relative "backups") :defaults input-file)
+
+However, this will create a pathname whose whole directory component is the relative
+directory backups/, regardless of any directory component input-file may have had. For example:
+(make-pathname :directory '(:relative "backups")
+:defaults #p"/foo/bar/baz.txt")  → #p"backups/baz.txt"
+Sometimes, though, you want to combine two pathnames, at least one of which has a
+relative directory component, by combining their directory components. For instance,
+suppose you have a relative pathname such as #p"foo/bar.html" that you want to combine
+with an absolute pathname such as #p"/www/html/" to get #p"/www/html/foo/bar.html". In that
+case,  MAKE-PATHNAME won’t do; instead, you want  MERGE-PATHNAMES .
+MERGE-PATHNAMES takes two pathnames and merges them, filling in any  NIL components
+in the first pathname with the corresponding value from the second pathname, much like
+MAKE-PATHNAME fills in any unspecified components with components from the :defaults
+argument. However,  MERGE-PATHNAMES treats the directory component specially: if the first
+pathname’s directory is relative, the directory component of the resulting pathname will be the
+first pathname’s directory relative to the second pathname’s directory. Thus:
+(merge-pathnames #p"foo/bar.html" #p"/www/html/")  → #p"/www/html/foo/bar.html"
+The second pathname can also be relative, in which case the resulting pathname will also
+be relative.
+(merge-pathnames #p"foo/bar.html" #p"html/")  → #p"html/foo/bar.html"
+To reverse this process and obtain a filename relative to a particular root directory, you
+can use the handy function  ENOUGH-NAMESTRING .
+(enough-namestring #p"/www/html/foo/bar.html" #p"/www/")  → "html/foo/bar.html"
+You can then combine  ENOUGH-NAMESTRING with  MERGE-PATHNAMES to create a pathname
+representing the same name but in a different root.
+(merge-pathnames
+(enough-namestring #p"/www/html/foo/bar/baz.html" #p"/www/")
+#p"/www-backups/")  → #p"/www-backups/html/foo/bar/baz.html"
+MERGE-PATHNAMES is also used internally by the standard functions that actually access
+files in the file system to fill in incomplete pathnames. For instance, suppose you make a path-
+name with just a name and a type.
+(make-pathname :name "foo" :type "txt")  → #p"foo.txt"
+If you try to use this pathname as an argument to  OPEN , the missing components, such as
+the directory, must be filled in before Lisp will be able to translate the pathname to an actual
+filename. Common Lisp will obtain values for the missing components by merging the given
+pathname with the value of the variable  *DEFAULT-PATHNAME-DEFAULTS* . The initial value of
+this variable is determined by the implementation but is usually a pathname with a directory
+component representing the directory where Lisp was started and appropriate values for the
+host and device components, if needed. If invoked with just one argument,  MERGE-PATHNAMES
+
+will merge the argument with the value of  *DEFAULT-PATHNAME-DEFAULTS* . For instance, if
+*DEFAULT-PATHNAME-DEFAULTS* is #p"/home/peter/", then you’d get the following:
+(merge-pathnames #p"foo.txt")  → #p"/home/peter/foo.txt"
+
+CL-USER> (merge-pathnames #p"ft.txt")
+#P"c:/code_dxf/lisp_code/ft.txt"
+CL-USER> 
 
 
+## Two Representations of Directory Names
+When dealing with pathnames that name directories, you need to be aware of one wrinkle.
+Pathnames separate the directory and name components, but Unix and Windows consider
+directories just another kind of file. Thus, on those systems, every directory has two different
+pathname representations.
+One representation, which I’ll call file form, treats a directory like any other file and puts
+the last element of the namestring into the name and type components. The other representa-
+tion, directory form, places all the elements of the name in the directory component, leaving
+the name and type components  NIL . If /foo/bar/ is a directory, then both of the following
+pathnames name it.
+(make-pathname :directory '(:absolute "foo") :name "bar") ; file form
+(make-pathname :directory '(:absolute "foo" "bar")) ; directory form
+When you create pathnames with  MAKE-PATHNAME , you can control which form you get,
+but you need to be careful when dealing with namestrings. All current implementations create
+file form pathnames unless the namestring ends with a path separator. But you can’t rely on
+user-supplied namestrings necessarily being in one form or another. For instance, suppose
+you’ve prompted the user for a directory to save a file in and they entered "/home/peter". If you
+pass that value as the :defaults argument of  MAKE-PATHNAME like this:
+(make-pathname :name "foo" :type "txt" :defaults user-supplied-name)
+you’ll end up saving the file in /home/foo.txt rather than the intended /home/peter/foo.txt
+because the "peter" in the namestring will be placed in the name component when
+user-supplied-name is converted to a pathname. In the pathname portability library I’ll discuss
+in the next chapter, you’ll write a function called pathname-as-directory that converts a
+pathname to directory form. With that function you can reliably save the file in the directory
+indicated by the user.
+(make-pathname
+:name "foo" :type "txt" :defaults (pathname-as-directory user-supplied-name))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+## Interacting with the File System
+While the most common interaction with the file system is probably OPEN ing files for reading
+and writing, you’ll also occasionally want to test whether a file exists, list the contents of a
+directory, delete and rename files, create directories, and get information about a file such as
+who owns it, when it was last modified, and its length. This is where the generality of the path-
+name abstraction begins to cause a bit of pain: because the language standard doesn’t specify
+how functions that interact with the file system map to any specific file system, implementers
+are left with a fair bit of leeway.
