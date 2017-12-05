@@ -35,6 +35,17 @@ makes when it’s hit with a drumstick a function of what kind of drum it is or 
 you use to hit it? Both, of course. To model this situation in Common Lisp, you simply define a
 generic function beat that takes two arguments.
 
+想起《卡尔波普尔的三个世界理论》所谓 第三个世界，科学理论
+概念世界
+世界的一大部分是虚拟的现实，是概念的，精神的，符号的。
+
+罗兰巴特 符号学
+作为一个爱忌妒的人，我得忍受四重痛苦：由于我爱忌妒，由于我因此责怪自己，由于我担心我的忌妒会有损于他人，
+又由于我自甘没出息：因此，我因受人冷落而痛苦，因咄咄逼人而痛苦，因疯狂而痛苦，又因太平庸而痛苦。
+
+流泪，只是为了证明悲伤不是幻觉。
+
+
 
 
 
