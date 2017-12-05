@@ -1,0 +1,106 @@
+#  implement this API in a library that will run correctly on multiple Common Lisp implementations
+
+The basic operations the library will support will be getting a list of files in a directory and
+determining whether a file or directory with a given name exists. You’ll also write a function for
+recursively walking a directory hierarchy, calling a given function for each pathname in the
+tree.
+In theory, these directory listing and file existence operations are already provided by the
+standard functions DIRECTORY and PROBE-FILE. However, as you’ll see, there are enough
+different ways to implement these functions—all within the bounds of valid interpretations of
+the language standard—that you’ll want to write new functions that provide a consistent
+behavior across implementations.
+
+## 有两种方式，将目录的名字表示成路径名（pathname）：目录形式 和 文件形式
+One subtlety I discussed in Chapter 14 is the two ways to represent the name of a directory as
+a pathname: directory form and file form.
+To get DIRECTORY to return a list of files in /home/peter/, you need to pass it a wild path-
+name whose directory component is the directory you want to list and whose name and type
+components are :wild. Thus, to get a listing of the files in /home/peter/, it might seem you
+could write this:
+(directory (make-pathname :name :wild :type :wild :defaults home-dir))
+where home-dir is a pathname representing /home/peter/. This would work if home-dir were in
+directory form. But if it were in file form—for example, if it had been created by parsing the
+namestring "/home/peter"—then that same expression would list all the files in /home since the
+name component "peter" would be replaced with :wild.
+
+### 生成 通配路径名（a wild pathname）
+CL-USER> (make-pathname :name :wild :type :wild :defaults "c:/code_dxf/lisp_code/")
+#P"c:/code_dxf/lisp_code/*.*"
+
+CL-USER> (pathname-name *p*)
+:WILD
+CL-USER> (pathname-type *p*)
+:WILD
+
+CL-USER> (directory (make-pathname :name :wild :type :wild :defaults "c:/code_dxf/lisp_code/"))
+
+CL-USER> (directory (make-pathname :name :wild :type :wild :defaults "c:/code_dxf/lisp_code/ft.txt"))
+
+CL-USER> (directory (make-pathname :name :wild :type :wild :defaults "."))
+
+CL-USER> (directory (make-pathname :name :wild :type :wild :defaults "../"))
+
+To avoid having to worry about explicitly converting between representations, you can
+define list-directory to accept a nonwild pathname in either form, which it will then convert
+to the appropriate wild pathname.
+
+To help with this, you should define a few helper functions. One, component-present-p,
+will test whether a given component of a pathname is “present,” meaning neither  NIL nor the
+special value :unspecific. 3 Another, directory-pathname-p, tests whether a pathname is already
+in directory form, and the third, pathname-as-directory, converts any pathname to a directory
+form pathname.
+(defun component-present-p (value)
+  (and value (not (eql value :unspecific))))
+
+(defun directory-pathname-p (p)
+  (and
+    (not (component-present-p (pathname-name p)))
+    (not (component-present-p (pathname-type p)))
+    p))
+    
+(defun pathname-as-directory (name)
+  (let ((pathname (pathname name)))
+    (when (wild-pathname-p pathname)
+      (error "Can't reliably convert wild pathnames."))
+    (if (not (directory-pathname-p name))
+      (make-pathname
+        :directory (append (or (pathname-directory pathname) (list :relative))
+                               (list (file-namestring pathname)))
+        :name nil
+        :type nil
+        :defaults pathname)
+      pathname)))
+
+
+
+(defun directory-wildcard (dirname)
+  (make-pathname
+    :name :wild
+    :type #-clisp :wild #+clisp nil
+    :defaults (pathname-as-directory dirname)))
+
+(defun list-directory (dirname)
+  (when (wild-pathname-p dirname)
+    (error "Can only list concrete directory names."))
+  (directory (directory-wildcard dirname)))
+  
+  
+(defun list-directory (dirname)
+  (when (wild-pathname-p dirname)
+    (error "Can only list concrete directory names."))
+  (let ((wildcard (directory-wildcard dirname)))
+    #+(or sbcl cmu lispworks)
+    (directory wildcard)
+    #+openmcl
+    (directory wildcard :directories t)
+    #+allegro
+    (directory wildcard :directories-are-files nil)
+    #+clisp
+    (nconc
+      (directory wildcard)
+      (directory (clisp-subdirectories-wildcard wildcard)))
+    #-(or sbcl cmu lispworks openmcl allegro clisp)
+    (error "list-directory not implemented")))
+    
+    
+;;
