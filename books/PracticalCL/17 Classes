@@ -1,0 +1,44 @@
+# 17 Object Reorientation: Classes
+
+继承机制
+
+方法分派
+
+类与类的关系不是一对一那样线性，清晰的。它们可能连成一张网。
+（SICP中对此有清楚说明。）
+
+想起《人类简史》中说的“想象的物质”，货币，法律之类
+
+https://www.bilibili.com/video/av8515129/?from=search&seid=375230095697720759#page=9
+SICP 09《赋值 状态和副作用》
+什么是对象？
+我们可以把世界分成两部分，我和你（还有些其他东西）
+使得大多数对于我的讨论不会影响（involves）到你。反之亦然。
+我有血压，体温，数不清的状态变量和行为。以物理学的观点来看，我有大量的状态变量。
+我的和你的大多数变量之间毫无联系，所以可以计算我的属性而不用关心你的属性。
+然而，实际上有些力量（forces）将我们耦合起来（couple us）。
+我看着你，我的状态就变了。
+如果你对我大喊大叫，我的血压就上升。
+将世界看作由独立变量和独立粒子组成是不恰当的。
+当我们思考事物时，会将事物分解为相互独立的部分来看待。然而事实上，事物之间的耦合程度远远大于我们表面所看到的！！！
+我们被培养成这样思考，因为高效。
+
+我们如何知道我们有对象？
+How can we tell if we have objects?
+你如何确定面前的两支粉笔不是同一支？或许另一支只是镜像。
+方法只有，改变其中一支的状态（如折断），看另一支是否跟着改变。
+我们又如何知道东西改变了呢？
+
+Multimethods are perfect for all those situations where, in a message-passing language,
+you struggle to decide to which class a certain behavior ought to belong. Is the sound a drum
+makes when it’s hit with a drumstick a function of what kind of drum it is or what kind of stick
+you use to hit it? Both, of course. To model this situation in Common Lisp, you simply define a
+generic function beat that takes two arguments.
+
+
+
+
+
+
+
+
