@@ -1,0 +1,145 @@
+# Object Reorientation: Generic Functions
+
+## Generic Functions and Classes
+The fundamental idea of object orientation is that a powerful way to organize a program is to
+define data types and then associate operations with those data types. 
+
+
+Early Lisp object systems worked in a similar way, providing a special function SEND that
+could be used to send a message to a particular object. However, this wasn’t entirely satisfactory,
+as it made method invocations different from normal function calls. Syntactically method
+invocations were written like this:
+(send object 'foo)
+rather than like this:
+(foo object)
+More significantly, because methods weren’t functions, they couldn’t be passed as argu-
+ments to higher-order functions such as  MAPCAR ; if one wanted to call a method on all the
+elements of a list with  MAPCAR , one had to write this:
+(mapcar #'(lambda (object) (send object 'foo)) objects)
+rather than this:
+(mapcar #'foo objects)
+
+Eventually the folks working on Lisp object systems unified methods with functions by
+creating a new kind of function called a generic function. In addition to solving the problems
+just described, generic functions opened up new possibilities for the object system, including
+many features that simply don’t make sense in a message-passing object system.
+Generic functions are the heart of Common Lisp’s object system and the topic of the rest
+of this chapter. While I can’t talk about generic functions without some mention of classes, for
+now I’ll focus on how to define and use generic functions. In the next chapter I’ll show you how
+to define your own classes.
+
+## Generic Functions and Methods
+A generic function defines an abstract operation, specifying its name and a parameter list but
+no implementation. Here, for example, is how you might define a generic function, draw, that
+will be used to draw different kinds of shapes on the screen:
+(defgeneric draw (shape)
+  (:documentation "Draw the given shape on the screen."))
+
+The actual implementation of a generic function is provided by methods. Each method provides an
+implementation of the generic function for particular classes of arguments. Perhaps the biggest
+difference between a generic function–based system and a message-passing system is that
+methods don’t belong to classes; they belong to the generic function, which is responsible for
+determining what method or methods to run in response to a particular invocation.
+基于generic function的系统与基于消息传递的系统之间的最大区别是，方法不属于类，它们属于generic function，
+generic function决定在一个特定调用中检测哪个或哪些方法将被运行。
+
+(defmethod draw ((shape circle))
+  ...)
+(defmethod draw ((shape triangle))
+  ...)
+
+?????????????????????????????????
+You can specialize a parameter in two ways—usually you’ll specify a class that the argument
+must be an instance of. Because instances of a class are also considered instances of that class’s
+superclasses, a method with a parameter specialized on a particular class can be applicable
+whenever the corresponding argument is a direct instance of the specializing class or of any of
+its subclasses. The other kind of specializer is a so-called  EQL specializer, which specifies a
+particular object to which the method applies.
+When a generic function has only methods specialized on a single parameter and all the
+specializers are class specializers, the result of invoking a generic function is quite similar to
+the result of invoking a method in a message-passing system—the combination of the name of
+the operation and the class of the object on which it’s invoked determines what method to run.
+However, reversing the order of lookup opens up possibilities not found in message-
+passing systems. Generic functions support methods that specialize on multiple parameters,
+provide a framework that makes multiple inheritance much more manageable, and let you use
+declarative constructs to control how methods are combined into an effective method, supporting
+several common usage patterns without a lot of boilerplate code. I’ll discuss those topics in a
+moment. But first you need to look at the basics of the two macros used to define the generic
+functions  DEFGENERIC and  DEFMETHOD.
+??????????????????????????????????
+
+
+## DEFGENERIC
+
+Because I’m not going to discuss how to define new classes until the next chapter, for
+now you can just assume that certain classes already exist: for starters, assume there’s a class
+bank-account and that it has two subclasses, checking-account and savings-account. 
+
+(defgeneric withdraw (account amount)
+  (:documentation "Withdraw the specified amount from the account.
+Signal an error if the current balance is less than amount."))
+
+## DEFMETHOD
+
+Since the basics of withdrawing are the same for all accounts, you can define a method
+that specializes the account parameter on the bank-account class. You can assume the function
+balance returns the current balance of the account and can be used with  SETF —and thus with
+DECF —to set the balance. The function  ERROR is a standard function used to signal an error,
+which I’ll discuss in greater detail in Chapter 19. Using those two functions, you can define a
+basic withdraw method that looks like this:
+(defmethod withdraw ((account bank-account) amount)
+  (when (< (balance account) amount)
+    (error "Account overdrawn."))
+  (decf (balance account) amount))
+  
+  
+  
+## Multimethods
+Multimethods are perfect for all those situations where, in a message-passing language,
+you struggle to decide to which class a certain behavior ought to belong. Is the sound a drum
+makes when it’s hit with a drumstick a function of what kind of drum it is or what kind of stick
+you use to hit it? Both, of course. To model this situation in Common Lisp, you simply define a
+generic function beat that takes two arguments.
+
+(defgeneric beat (drum stick)
+  (:documentation
+  "Produce a sound by hitting the given drum with the given stick."))
+Then you can define various multimethods to implement beat for the combinations you
+care about. For example:
+(defmethod beat ((drum snare-drum) (stick wooden-drumstick)) ...)
+(defmethod beat ((drum snare-drum) (stick brush)) ...)
+(defmethod beat ((drum snare-drum) (stick soft-mallet)) ...)
+(defmethod beat ((drum tom-tom) (stick wooden-drumstick)) ...)
+(defmethod beat ((drum tom-tom) (stick brush)) ...)
+(defmethod beat ((drum tom-tom) (stick soft-mallet)) ...)
+
+Multimethods don’t help with the combinatorial explosion—if you need to model five
+kinds of drums and six kinds of sticks, and every combination makes a different sound, there’s
+no way around it; you need thirty different methods to implement all the combinations, with
+or without multimethods. What multimethods do save you from is having to write a bunch of
+dispatching code by letting you use the same built-in polymorphic dispatching that’s so useful
+when dealing with methods specialized on a single parameter.
+
+Multimethods also save you from having to tightly couple one set of classes with the other.
+In the drum/stick example, nothing requires the implementation of the drum classes to know
+about the various classes of drumstick, and nothing requires the drumstick classes to know
+anything about the various classes of drum. The multimethods connect the otherwise inde-
+pendent classes to describe their joint behavior without requiring any cooperation from the
+classes themselves.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
