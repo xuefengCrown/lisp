@@ -1,0 +1,267 @@
+# 1.1  Symbolic Computation
+## 定义新对象和操纵对象
+Lisp is more useful than a calculator for two main reasons. First,
+it allows us to manipulate objects other than numbers, and second, it allows us
+to define new objects that might be useful in subsequent computations. We will
+examine these two important properties in turn.
+
+符号是待解释的，它指向things outside the world of mathematics
+Lisp还可能构建非原子的对象，通过把一些对象组织进一个列表。
+Besides numbers, Lisp can represent characters (letters), strings of characters,
+and arbitrary symbols, where we are free to interpret these symbols as referring to
+things outside the world of mathematics. Lisp can also build nonatomic objects
+by combining several objects into a list. This capability is fundamental and well
+supported in the language; in fact, the name Lisp is short for LISt Processing.
+
+'John evaluates to John because it is a quoted expression, but evaluating John leads
+to an error, because evaluating a symbol means getting the value of the symbol, and
+no value has been assigned to John.
+
+Symbolic computations can be nested and even mixed with numeric computations. 
+
+
+There are four important points to make about symbols:
+Second, to do the computations above, we had to know that append,  length,
+and + are defined functions in Common Lisp. Learning a language involves
+remembering vocabulary items (or knowing where to look them up) as well
+as learning the basic rules for forming expressions and determining what they
+mean. Common Lisp provides over 700 built-in functions. At some point the
+reader should flip through a reference text to see what's there, but most of the
+important functions are presented in part I of this book.
+
+Third, note that symbols in Common Lisp are not case sensitive. 
+
+## 1.2 Variables
+We have seen some of the basics of symbolic computation. Now we move on to
+perhaps the most important characteristic of a programming language: the ability to
+define new objects in terms of others, and to name these objects for future use. Here
+symbols again play an important role - they are used to name variables. A variable
+can take on a value, which can be any Lisp object. One way to give a value to a
+variable is with  setf:
+
+Symbols are also used to name functions in Common Lisp. 
+
+## 1.3 Special Forms
+The careful reader will note that setf violates the evaluation rule.（求值规则） We said earlier
+that functions like  +,  -  and  append  work by first evaluating all their arguments and
+then applying the function to the result. But setf doesn't follow that rule, because
+setf  is not a function at all. Rather, it is part of the basic syntax of Lisp.
+
+In evaluating an to expression like  (setf  x  (+  1  2),  we set the variable named
+by the symbol  x  to the value of  (+  1  2),  which is  3.  If  s e t f  were a normal function,
+we would evaluate both the symbol  x  and the expression  (+  1  2)  and do something
+with these two values, which is not what we want at all.  s e t f  is called a special form
+because it does something special: if it did not exist, it would be impossible to write
+a function that assigns a value to a variable. The philosophy of Lisp is to provide a
+small number of special forms to do the things that could not otherwise be done, and
+then to expect the user to write everthing else as functions.
+
+defun  define function
+defparameter  define special variable
+setf  set variable or field to new value
+1et  bind local variable(s)
+case  choose one of several alternatives
+if  do one thing or another, depending on a test
+function  (#')  refer to a function
+quote  (')  introduce constant data
+
+## 1.4  Lists
+
+## 1.5 Defining New Functions
+the function body consists of one or more expressions that are evaluated when the function is called. 
+The last expression is returned as the value of the function call.
+
+
+Here are some more examples of  mapcar:
+>  (mapcar  #'-  '(1  2  3  4)) ===> (-1  - 2  - 3  -4)
+>  (mapcar  #'+  '(1 2  3  4) '(10 20 30 40)) ===> (11  22  33  44)
+
+>  (mapcar #'first - name names)
+(JOHN MALCOLM ADMIRAL SPOT ARISTOTLE A  Z  SIR  MISS)
+We might be disappointed with these results. Suppose we wanted a version of
+first-name which ignored titles like Admiral and Miss, and got to the "real" first
+name. 
+
+;; first
+;; member
+We next give a new definition for first-name,  which supersedes the previous
+definition. This definition says that if the first word of the name is a member of the
+list of titles, then we want to ignore that word and return the first-name of the rest
+of the words in the name. Otherwise, we use the first word, just as before. Another
+built-in function, member, tests to see if its first argument is an element of the list
+passed as the second argument.
+
+(defparameter *titles*
+  '(Mr Mrs Miss Ms S i r Madam Dr Admiral Major General)
+  "A list of titles that can appear at the start a name. " )
+
+(defun first-name (name)
+"Select the first name from a name represented as a list. "
+  (if (member (first name) *titles*)
+      (first-name (rest name))
+      (first name)))
+
+CL-USER> (trace +)
+(+)
+CL-USER> (+ (* 2 3) 9)
+  0: (+ 6 9)
+  0: + returned 15
+15
+
+
+## 1.7 Higher-Order Functions
+
+CL-USER> (funcall #'* 1 2 3 4)
+24
+CL-USER> (apply #'* '(1 2 3 4)) ;;  Apply fn to each element of list
+24
+
+>  (defun self-and-double (x) ( l i s t x  (+  x X I ) )
+>  (self-and-double 3 )  ===>  (3  6)
+>  (apply #'self-and-double '(3)  ===>  ( 3 6)
+
+>  (mapcar #'self-and-double '(1 10 300)) ===> (( 1 2) (10 20) (300 600))
+>  (mappend #'self-and-double '(1 10 300)) ===> (1 2 10 20 300 600)
+
+
+## 1.8  Other Data Types
+So far we have seen just four kinds of Lisp objects: numbers, symbols, lists, and
+functions. Lisp actually defines about  25  different types of objects: vectors, arrays,
+structures, characters, streams, hash tables, and others. At this point we will intro -
+duce one more, the string. As you can see in the following, strings, like numbers,
+evaluate to themselves. Strings are used mainly for printing out messages, while
+symbols are used for their relationships to other objects, and to name variables. The
+printed representation of a string has a double quote mark  (")  at each end.
+>  "astring" ===> "astring"
+>  (length "a string") ===> 8
+>  (length "")  ===> O
+
+
+## 1.10  What Makes Lisp Different?
+What is it that sets Lisp apart from other languages? Why is it a good language for
+AI applications? There are at least eight important factors:
+1. Built-in Support for Lists
+2. Automatic Storage Management
+3. Dynamic Typing（动态类型）
+4. First-Class Functions
+5. Uniform Syntax（统一语法）
+6. Interactive Environment（交互环境）
+7. Extensibility（可扩展性）
+8. History
+
+In sum, these factors allow a programmer to delay making decisions. 
+1. built-in support for lists
+This ability to delay decisions - or more accurately, to make temporary, nonbinding 
+decisions - is usually a good thing, because it means that irrelevant details can be
+ignored. There are also some negative points of delaying decisions. First, the less we
+tell the compiler, the greater the chance that it may have to produce inefficient code.
+Second, the less we tell the compiler, the less chance it has of noticing inconsistencies
+and warning us. Errors may not be detected until the program is run.
+Let's consider each factor in more depth, weighing the advantages and disadvantages:
+Built - in Support for Lists.  The list is a very versatile（通用的） data structure, and while lists
+can be implemented in any language, Lisp makes it easy to use them. 
+Many AI applications involve lists of constantly changing size, making fixed-length（固定长度）
+data structures like vectors harder to use.
+Early versions of Lisp used lists as their only aggregate data structure. Common
+Lisp provides other types as well, because lists are not always the most efficient
+choice.
+Lisp 提供了其他类型，因为lists经常不是最高效的。
+
+2. Automatic Storage Management.  The Lisp programmer needn't keep track of
+memory allocation; it is all done automatically. This frees the programmer of a
+lot of effort, and makes it easy to use the functional style of programming. Other
+languages present programmers with a choice. Variables can be allocated on
+the stack, meaning that they are created when a procedure is entered, and
+disappear when the procedure is done. This is an efficient use of storage, but
+it rules out functions that return complex values. The other choice is for the
+programmer to explicitly allocate and free storage. This makes the functional
+style possible but can lead to errors.
+For example, consider the trivial problem of computing the expression  a  x  (b  +
+c), where  a, b,  and  c  are numbers. The code is trivial in any language; here it is
+in Pascal and in Lisp:
+
+The only difference is that Pascal uses infix notation and Lisp uses prefix. Now
+consider computing  a  x  (b  +  c) when  a, b,  and  c  are matrices. Assume we have
+procedures for matrix multiplication and addition. In Lisp the form is exactly
+the same; only the names of the functions are changed. In Pascal we have the
+choice of approaches mentioned before. We could declare temporary variables
+to hold intermediate results on the stack, and replace the functional expression
+with a series of procedure calls:
+;;; (mult a (add b c))
+
+
+3. Dynamic Typing. 
+Lisp programmers don't have to provide type declarations,
+because the language keeps track of the type of each object at run time, rather
+than figuring out all types at compile time. This makes Lisp programs shorter
+and hence faster to develop, and it also means that functions can often be
+extended to work for objects to which they were not originally intended to
+apply. In Pascal, we can write a procedure to sort an array of 100 integers, but
+we can't use that same procedure to sort 200 integers, or 100 strings. In Lisp,
+one sort fits all.
+
+强类型语言的最大的好处在于，它们能够在编译期给出错误信息。
+不过，能提醒的只是一些小错误。
+我同意《黑客与画家》中所说，程序设计者不该假设语言使用者是傻瓜。
+如果他是傻瓜，你能阻止他不犯小错误，但你无法让他写出好程序。
+On the other hand, dynamic typing means that some errors will go undetected
+until run time. The great advantage of strongly typed languages is that they are
+able to give error messages at compile time. The great frustration with strongly
+typed languages is that they are only able to warn about a small class of errors.
+They can tell you that you are mistakenly passing a string to a function that
+expects an integer, but they can't tell you that you are passing an odd number
+to a function that expects an even number.
+
+4. First-Class Functions. 
+A first-class object is one that can be used anywhere and
+can be manipulated in the same ways as any other kind of object. In Pascal or  C,
+for example, functions can be passed as arguments to other functions, but they
+are not first-class, because it is not possible to create new functions while the
+program is running, nor is it possible to create an anonymous（匿名） function without
+giving it a name. In Lisp we can do both those things using lambda.  
+
+5. Uniform Syntax.  
+The syntax of Lisp programs is simple. This makes the language easy to learn, 
+and very little time is wasted correcting typos. In addition,
+it is easy to write programs that manipulate other programs or define whole
+new languages - a very powerful technique. The simple syntax also makes it
+easy for text editing programs to parse Lisp. Your editor program should be
+able to indent expressions automatically and to show matching parentheses.
+This is harder to do for languages with complex syntax.
+Lisp的语法的简洁性使得文本编辑器来解析Lisp。你的程序编辑器应该能够自动缩进表达式以及匹配括号。
+而其他语言因为其语法复杂而很难做到这一点。
+On the other hand, some people object to（反对） all the parentheses.
+
+6. Interactive Environment.  Traditionally, a programmer would write a complete
+program, compile it, correct any errors detected by the compiler, and then
+run and debug it. This is known as the  batch  mode of interaction. For long
+programs, waiting for the compiler occupied a large portion of the debugging
+time. In Lisp one normally writes a few small functions at a time, getting
+feedback from the Lisp system after evaluating each one. This is known as
+an  interactive  environment. When it comes time to make a change, only the
+changed functions need to be recompiled, so the wait is much shorter. In
+addition, the Lisp programmer can debug by typing in arbitrary expressions
+at any time. This is a big improvement over editing the program to introduce
+print statements and recompiling.
+我们不是一下子就写出正确的，漂亮的程序的。而是一点点编码，测试，犯错，修改...
+交互式环境使得这一切更容易和更高效。
+
+7. Extensibility.  When Lisp was invented in 1958,  nobody could have foreseen（预见） the
+advances in programming theory and language design that have taken place in
+the last thirty years. Other early languages have been discarded, replaced by
+ones based on newer ideas. However, Lisp has been able to survive, because
+it has been able to adapt. Because Lisp is extensible, it has been changed to
+incorporate（吸收包含） the newest features as they become popular.
+
+### 使用宏 扩展语言
+The easiest way to extend the language is with macros. When so-called structured 
+programming constructs such as case and if - then - else arose, they were
+incorporated into Lisp as macros. Rut the flexibility of Lisp goes beyond
+adding individual constructs. Brand new styles of programming can easily be
+implemented. Many AI applications are based on the idea of rule-based programming. 
+Another new style is object-oriented programming, which has been
+incorporated with the Common Lisp Object System (CLOS),~ a set of macros,
+functions, and data types that have been integrated into ANSI Common Lisp.
+
+;;
+;;
