@@ -1,0 +1,211 @@
+# 18 A Few FORMAT Recipes
+
+## FORMAT Directives
+CL-USER> (format t "~5$" pi)
+3.14159
+NIL
+
+CL-USER> (format t "~v$" 3 pi)
+3.142
+NIL
+CL-USER> (format t "~#$" pi)
+3.1
+NIL
+CL-USER> (format t "~,5f" pi)
+3.14159
+NIL
+
+CL-USER> (format t "~d" 1000000)
+1000000
+NIL
+CL-USER> (format t "~:d" 1000000)
+1,000,000
+NIL
+CL-USER> (format t "~@d" 1000000)
++1000000
+NIL
+
+CL-USER> (format t "~:@d" 1000000)
++1,000,000
+NIL
+
+## Basic Formatting
+
+(format nil "The value is: ~a" 10) → "The value is: 10"
+(format nil "The value is: ~a" "foo") → "The value is: foo"
+(format nil "The value is: ~a" (list 1 2 3))  → "The value is: (1 2 3)"
+
+A closely related directive, ~S, likewise consumes one format argument of any type and
+outputs it. However, ~S tries to generate output that can be read back in with  READ . Thus, strings
+will be enclosed in quotation marks, symbols will be package-qualified when necessary, and so
+on. Objects that don’t have a  READ able representation are printed with the unreadable object
+syntax, #<>. With a colon modifier, both the ~A and ~S directives emit  NIL as () rather than  NIL .
+Both the ~A and ~S directives also take up to four prefix parameters, which can be used to
+control whether padding is added after (or before with the at-sign modifier) the value, but
+those parameters are only really useful for generating tabular data.
+
+The other two most frequently used directives are ~%, which emits a newline, and ~&, which
+emits a fresh line. The difference between the two is that ~% always emits a newline, while ~&
+emits one only if it’s not already at the beginning of a line. This is handy when writing loosely
+coupled functions that each generate a piece of output and that need to be combined in different
+ways. For instance, if one function generates output that ends with a newline (~%) and another
+function generates some output that starts with a fresh line (~&), you don’t have to worry about
+getting an extra blank line if you call them one after the other. Both of these directives can take
+a single prefix parameter that specifies the number of newlines to emit. The ~% directive will
+simply emit that many newline characters, while the ~& directive will emit either n – 1 or n
+newlines, depending on whether it starts at the beginning of a line.
+Less frequently used is the related ~~ directive, which causes  FORMAT to emit a literal tilde.
+Like the ~% and ~& directives, it can be parameterized with a number that controls how many
+tildes to emit.
+
+
+CL-USER> (format t "~7~")
+~~~~~~~
+NIL
+
+## Character and Integer Directives
+
+(format t "Syntax error. Unexpected character: ~:c" char)
+can emit messages like this:
+Syntax error. Unexpected character: a
+but also like the following:
+Syntax error. Unexpected character: Space
+
+CL-USER> (format t "~:c" #\ )
+Space
+NIL
+
+With the at-sign modifier, ~@C will emit the character in Lisp’s literal character syntax.
+CL-USER> (format t "~@c~%" #\a)
+#\a
+NIL
+
+CL-USER> (code-char 45)
+#\-
+
+The first prefix parameter can specify a minimum width for the output, and the second
+parameter can specify a padding character to use. The default padding character is space, and
+padding is always inserted before the number itself.
+(format nil "~12d" 1000000) → " 1000000"
+(format nil "~12,'0d" 1000000)  → "000001000000"
+These parameters are handy for formatting things such as dates in a fixed-width format.
+(format nil "~4,'0d-~2,'0d-~2,'0d" 2005 6 10)  → "2005-06-10"
+
+The third and fourth parameters are used in conjunction with the colon modifier: the third
+parameter specifies the character to use as the separator between groups and digits, and the
+fourth parameter specifies the number of digits per group. These parameters default to a
+comma and the number 3. Thus, you can use the directive ~:D without parameters to output
+large integers in standard format for the United States but can change the comma to a period
+and the grouping from 3 to 4 with ~,,'.,4D.
+(format nil "~:d" 100000000) → "100,000,000"
+(format nil "~,,'.,4:d" 100000000)  → "1.0000.0000"
+Note that you must use commas to hold the places of the unspecified width and padding
+character parameters, allowing them to keep their default values.
+
+The ~X, ~O, and ~B directives work just like the ~D directive except they emit numbers in
+hexadecimal (base 16), octal (base 8), and binary (base 2).
+(format nil "~x" 1000000)  → "f4240"
+(format nil "~o" 1000000)  → "3641100"
+(format nil "~b" 1000000)  → "11110100001001000000"
+
+## Floating-Point Directives
+
+The ~F directive is, however, allowed to use computerized scientific notation if the number is sufficiently large or small. 
+The ~E directive, on the other hand, always emits numbers in computerized scientific notation. 
+Both of these directives take a number of prefix parameters, but you need to worry only about the
+second, which controls the number of digits to print after the decimal point.
+(format nil "~f" pi) → "3.141592653589793d0"
+(format nil "~,4f" pi)  → "3.1416"
+(format nil "~e" pi) → "3.141592653589793d+0"
+(format nil "~,4e" pi)  → "3.1416d+0"
+
+## English-Language Directives
+
+The ~R directive, which I discussed in “Character and Integer Directives,” when used with
+no base specified, prints numbers as English words or Roman numerals. When used with no
+prefix parameter and no modifiers, it emits the number in words as a cardinal number.
+(format nil "~r" 1234)  → "one thousand two hundred thirty-four"
+With the colon modifier, it emits the number as an ordinal.
+(format nil "~:r" 1234)  → "one thousand two hundred thirty-fourth"
+And with an at-sign modifier, it emits the number as a Roman numeral; with both an at-
+sign and a colon, it emits “old-style” Roman numerals in which fours and nines are written as
+IIII and VIIII instead of IV and IX.
+(format nil "~@r" 1234) → "MCCXXXIV"
+(format nil "~:@r" 1234)  → "MCCXXXIIII"
+For numbers too large to be represented in the given form, ~R behaves like ~D.
+To help you generate messages with words properly pluralized,  FORMAT provides the
+~P directive, which simply emits an s unless the corresponding argument is 1.
+(format nil "file~p" 1) → "file"
+(format nil "file~p" 10)  → "files"
+(format nil "file~p" 0) → "files"
+Typically, however, you’ll use ~P with the colon modifier, which causes it to reprocess the
+previous format argument.
+(format nil "~r file~:p" 1) → "one file"
+(format nil "~r file~:p" 10)  → "ten files"
+(format nil "~r file~:p" 0) → "zero files"
+With the at-sign modifier, which can be combined with the colon modifier, ~P emits either
+y or ies.
+(format nil "~r famil~:@p" 1) → "one family"
+(format nil "~r famil~:@p" 10)  → "ten families"
+(format nil "~r famil~:@p" 0) → "zero families"
+
+
+## Conditional Formatting
+(format nil "~[cero~;uno~;dos~]" 0)  → "cero"
+(format nil "~[cero~;uno~;dos~]" 1)  → "uno"
+(format nil "~[cero~;uno~;dos~]" 2)  → "dos"
+
+(format t "~:[FAIL~;pass~]" test-result)
+
+CL-USER> (format t "~:[FAIL~;pass~]" t 'result)
+pass
+NIL
+CL-USER> (format t "~:[FAIL~;pass~]" nil 'result)
+FAIL
+NIL
+
+## Iteration
+
+(format nil "~{~a, ~}" (list 1 2 3))  → "1, 2, 3, "
+
+However, it’s annoying that in the output the last element of the list is followed by a comma
+and a space. You can fix that with the ~^ directive; within the body of a ~{ directive, the ~^
+causes the iteration to stop immediately, without processing the rest of the control string,
+when no elements remain in the list. Thus, to avoid printing the comma and space after the last
+element of a list, you can precede them with a ~^.
+(format nil "~{~a~^, ~}" (list 1 2 3))  → "1, 2, 3"
+
+With an at-sign modifier, ~{ processes the remaining format arguments as a list.
+(format nil "~@{~a~^, ~}" 1 2 3)  → "1, 2, 3"
+
+
+## Hop, Skip, Jump
+A much simpler directive is the ~* directive, which allows you to jump around in the list of
+format arguments. In its basic form, without modifiers, it simply skips the next argument,
+consuming it without emitting anything. More often, however, it’s used with a colon modifier,
+which causes it to move backward, allowing the same argument to be used a second time. For
+instance, you can use ~:* to print a numeric argument once as a word and once in numerals
+like this:
+(format nil "~r ~:*(~d)" 1)  → "one (1)"
+Or you could implement a directive similar to ~:P for an irregular plural by combing ~:*
+with ~[.
+(format nil "I saw ~r el~:*~[ves~;f~:;ves~]." 0)  → "I saw zero elves."
+(format nil "I saw ~r el~:*~[ves~;f~:;ves~]." 1)  → "I saw one elf."
+(format nil "I saw ~r el~:*~[ves~;f~:;ves~]." 2)  → "I saw two elves."
+In this control string, the ~R prints the format argument as a cardinal number. Then the
+~:* directive backs up so the number is also used as the argument to the ~[ directive, selecting
+between the clauses for when the number is zero, one, or anything else. 7
+Within an ~{ directive, ~* skips or backs up over the items in the list. For instance, you
+could print only the keys of a plist like this:
+
+(format nil "~{~s~*~^ ~}" '(:a 10 :b 20))  → ":A :B"
+The ~* directive can also be given a prefix parameter. With no modifiers or with the colon
+modifier, this parameter specifies the number of arguments to move forward or backward and
+defaults to one. With an at-sign modifier, the prefix parameter specifies an absolute, zero-based
+index of the argument to jump to, defaulting to zero. The at-sign variant of ~* can be useful if
+you want to use different control strings to generate different messages for the same arguments
+and if different messages need to use the arguments in different orders.
+
+
+
+
