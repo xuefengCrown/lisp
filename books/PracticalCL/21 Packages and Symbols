@@ -1,0 +1,177 @@
+# Programming in the Large: Packages and Symbols
+
+
+
+##
+Defining Your Own Packages
+
+However, before you start defining packages, it’s important to understand one thing about
+what packages do not do. Packages don’t provide direct control over who can call what function or
+access what variable. They provide you with basic control over namespaces by controlling how
+the reader translates textual names into symbol objects, but it isn’t until later, in the evaluator,
+that the symbol is interpreted as the name of a function or variable or whatever else. Thus, it
+doesn’t make sense to talk about exporting a function or a variable from a package. You can
+export symbols to make certain names easier to refer to, but the package system doesn’t allow
+you to restrict how those names are used.
+
+
+I’ll describe the various options in terms of how you might use packages while writing a
+program that organizes e-mail messages into a searchable database. The program is purely
+hypothetical, as are the libraries I’ll refer to—the point is to look at how the packages used in
+such a program might be structured.
+The first package you’d need is one to provide a namespace for the application—you want
+to be able to name your functions, variables, and so on, without having to worry about name
+collisions with unrelated code. So you’d define a new package with  DEFPACKAGE .
+If the application is simple enough to be written with no libraries beyond the facilities
+provided by the language itself, you could define a simple package like this:
+(defpackage :com.gigamonkeys.email-db
+  (:use :common-lisp))
+This defines a package, named COM.GIGAMONKEYS.EMAIL-DB, that inherits all the symbols
+exported by the COMMON-LISP package.
+
+To read code in this package, you need to make it the current package with the
+IN-PACKAGE macro:
+(in-package :com.gigamonkeys.email-db)
+
+If you type this expression at the REPL, it will change the value of  *PACKAGE* , affecting
+how the REPL reads subsequent expressions, until you change it with another call to
+IN-PACKAGE . Similarly, if you include an  IN-PACKAGE in a file that’s loaded with  LOAD or
+compiled with  COMPILE-FILE , it will change the package, affecting the way subsequent
+expressions in the file are read. 9
+With the current package set to the COM.GIGAMONKEYS.EMAIL-DB package, other than names
+inherited from the COMMON-LISP package, you can use any name you want for whatever purpose
+you want. Thus, you could define a new hello-world function that could coexist with the
+hello-world function previously defined in COMMON-LISP-USER. Here’s the behavior of the
+existing function:
+CL-USER> (hello-world)
+hello, world
+NIL
+
+Now you can switch to the new package using  IN-PACKAGE . 10 Notice how the prompt
+changes—the exact form is determined by the development environment, but in SLIME the
+default prompt consists of an abbreviated version of the package name.
+CL-USER> (in-package :com.gigamonkeys.email-db)
+#<The COM.GIGAMONKEYS.EMAIL-DB package>
+EMAIL-DB>
+You can define a new hello-world in this package:
+EMAIL-DB> (defun hello-world () (format t "hello from EMAIL-DB package~%"))
+HELLO-WORLD
+And test it, like this:
+EMAIL-DB> (hello-world)
+hello from EMAIL-DB package
+NIL
+Now switch back to CL-USER.
+EMAIL-DB> (in-package :cl-user)
+#<The COMMON-LISP-USER package>
+CL-USER>
+And the old function is undisturbed.
+CL-USER> (hello-world)
+hello, world
+NIL
+
+
+## Packaging Reusable Libraries
+
+While working on the e-mail database, you might write several functions related to storing and
+retrieving text that don’t have anything in particular to do with e-mail. You might realize that
+those functions could be useful in other programs and decide to repackage them as a library.
+You should define a new package, but this time you’ll export certain names to make them
+available to other packages.
+(defpackage :com.gigamonkeys.text-db
+  (:use :common-lisp)
+  (:export :open-db
+           :save
+           :store))
+Again, you use the COMMON-LISP package, because you’ll need access to standard functions
+within COM.GIGAMONKEYS.TEXT-DB. The :export clause specifies names that will be external in
+COM.GIGAMONKEYS.TEXT-DB and thus accessible in packages that :use it. Therefore, after you’ve
+defined this package, you can change the definition of the main application package to the
+following:
+(defpackage :com.gigamonkeys.email-db
+  (:use :common-lisp :com.gigamonkeys.text-db))
+Now code written in COM.GIGAMONKEYS.EMAIL-DB can use unqualified names to refer to the
+exported symbols from both COMMON-LISP and COM.GIGAMONKEYS.TEXT-DB. All other names will
+continue to be interned directly in the COM.GIGAMONKEYS.EMAIL-DB package.
+
+## Importing Individual Names
+
+Now suppose you find a third-party library of functions for manipulating e-mail messages. The
+names used in the library’s API are exported from the package COM.ACME.EMAIL, so you could
+:use that package to get easy access to those names. But suppose you need to use only one
+function from this library, and other exported symbols conflict with names you already use (or
+plan to use) in our own code. 11 In this case, you can import the one symbol you need with an
+:import-from clause in the  DEFPACKAGE . For instance, if the name of the function you want to
+use is parse-email-address, you can change the  DEFPACKAGE to this:
+(defpackage :com.gigamonkeys.email-db
+  (:use :common-lisp :com.gigamonkeys.text-db)
+  (:import-from :com.acme.email :parse-email-address))
+Now anywhere the name parse-email-address appears in code read in the
+COM.GIGAMONKEYS.EMAIL-DB package, it will be read as the symbol from COM.ACME.EMAIL. If you
+need to import more than one symbol from a single package, you can include multiple names
+after the package name in a single :import-from clause. A  DEFPACKAGE can also include multiple
+:import-from clauses in order to import symbols from different packages.
+Occasionally you’ll run into the opposite situation—a package may export a bunch of
+names you want to use and a few you don’t. Rather than listing all the symbols you do want to
+use in an :import-from clause, you can instead :use the package and then list the names you
+don’t want to inherit in a :shadow clause. For instance, suppose the COM.ACME.TEXT package
+exports a bunch of names of functions and classes used in text processing. Further suppose
+that most of these functions and classes are ones you’ll want to use in your code, but one of the
+names, build-index, conflicts with a name you’ve already used. You can make the build-index
+from COM.ACME.TEXT inaccessible by shadowing it.
+(defpackage :com.gigamonkeys.email-db
+  (:use
+   :common-lisp
+   :com.gigamonkeys.text-db
+   :com.acme.text)
+  (:import-from :com.acme.email :parse-email-address)
+  (:shadow :build-index))
+
+The :shadow clause causes a new symbol named BUILD-INDEX to be created and added
+directly to COM.GIGAMONKEYS.EMAIL-DB’s name-to-symbol map. Now if the reader reads the
+name BUILD-INDEX, it will translate it to the symbol in COM.GIGAMONKEYS.EMAIL-DB’s map, rather
+than the one that would otherwise be inherited from COM.ACME.TEXT. The new symbol is also
+added to a shadowing symbols list that’s part of the COM.GIGAMONKEYS.EMAIL-DB package, so if
+you later use another package that also exports a BUILD-INDEX symbol, the package system will
+know there’s no conflict—that you want the symbol from COM.GIGAMONKEYS.EMAIL-DB to be
+used rather than any other symbols with the same name inherited from other packages.
+
+## Packaging Mechanics
+
+Either way, once all the  DEFPACKAGE forms have been separated from the code that will be
+read in the packages they define, you can arrange to  LOAD the files containing the  DEFPACKAGE s
+before you compile or load any of the other files. For simple programs you can do this by hand:
+simply  LOAD the file or files containing the  DEFPACKAGE forms, possibly compiling them with
+COMPILE-FILE first. Then  LOAD the files that use those packages, again optionally compiling
+them first with  COMPILE-FILE . Note, however, that the packages don’t exist until you  LOAD the
+package definitions, either the source or the files produced by  COMPILE-FILE . Thus, if you’re
+compiling everything, you must still  LOAD all the package definitions before you can
+COMPILE-FILE any files to be read in the packages.
+
+Doing these steps by hand will get tedious after a while. For simple programs you can
+automate the steps by writing a file, load.lisp, that contains the appropriate  LOAD and
+COMPILE-FILE calls in the right order. Then you can just  LOAD that file. For more complex
+programs you’ll want to use a system definition facility to manage loading and compiling files
+in the right order. 
+
+??????
+The other key rule of thumb is that each file should contain exactly one  IN-PACKAGE form,
+and it should be the first form in the file other than comments. Files containing  DEFPACKAGE
+forms should start with (in-package "COMMON-LISP-USER"), and all other files should contain an
+IN-PACKAGE of one of your packages.
+If you violate this rule and switch packages in the middle of a file, you’ll confuse human
+readers who don’t notice the second  IN-PACKAGE . Also, many Lisp development environments,
+particularly Emacs-based ones such as SLIME, look for an  IN-PACKAGE to determine the
+package they should use when communicating with Common Lisp. Multiple  IN-PACKAGE
+forms per file may confuse these tools as well.
+On the other hand, it’s fine to have multiple files read in the same package, each with an
+identical  IN-PACKAGE form. It’s just a matter of how you like to organize your code.
+??????
+
+## Package Gotchas
+包相关的各种疑难杂症
+Once you’re familiar with packages, you won’t spend a bunch of time thinking about them.
+There’s just not that much to them. However, a couple of gotchas that bite most new Lisp
+programmers make the package system seem more complicated and unfriendly than it really is.
+
+;;
+;;
