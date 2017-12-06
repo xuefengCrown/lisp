@@ -1,0 +1,105 @@
+# 20 The Special Operators
+
+In a way, the most impressive aspect of the condition system covered in the previous chapter
+is that if it wasn’t already part of the language, it could be written entirely as a user-level library.
+This is possible because Common Lisp’s special operators—while none touches directly on
+signaling or handling conditions—provide enough access to the underlying machinery of the
+language to be able to do things such as control the unwinding of the stack.（栈的回退）
+
+## Controlling Evaluation
+The first category of special operators contains the three operators that provide basic control
+over the evaluation of forms. They’re  QUOTE ,  IF , and  PROGN , and I’ve discussed them all already.
+However, it’s worth noting how each of these special operators provides one fundamental kind
+of control over the evaluation of one or more forms.  QUOTE prevents evaluation altogether and
+allows you to get at s-expressions as data.  IF provides the fundamental boolean choice operation
+from which all other conditional execution constructs can be built. 1 And  PROGN provides the
+ability to sequence a number of forms.
+
+
+
+
+## Multiple Values
+
+Another feature of Common Lisp that I’ve mentioned in passing—in Chapter 11, when I discussed
+GETHASH —is the ability for a single form to return multiple values. I’ll discuss it in greater detail
+now. It is, however, slightly misplaced in a chapter on special operators since the ability to
+return multiple values isn’t provided by just one or two special operators but is deeply integrated
+into the language. The operators you’ll most often use when dealing with multiple values are
+macros and functions, not special operators. But it is the case that the basic ability to get at
+multiple return values is provided by a special operator,  MULTIPLE-VALUE-CALL , upon which
+the more commonly used  MULTIPLE-VALUE-BIND macro is built.
+The key thing to understand about multiple values is that returning multiple values is
+quite different from returning a list—if a form returns multiple values, unless you do some-
+thing specific to capture the multiple values, all but the primary value will be silently discarded.
+To see the distinction, consider the function  GETHASH , which returns two values: the value
+found in the hash table and a boolean that’s  NIL when no value was found. If it returned those
+two values in a list, every time you called  GETHASH you’d have to take apart the list to get at the
+actual value, regardless of whether you cared about the second return value. Suppose you have
+a hash table, *h*, that contains numeric values. If  GETHASH returned a list, you couldn’t write
+something like this:
+
+(+ (gethash 'a *h*) (gethash 'b *h*))
+
+because  + expects its arguments to be numbers, not lists. But because the multiple value mechanism 
+silently discards（丢弃） the secondary return value when it’s not wanted, this form works fine.
+
+There are two aspects to using multiple values — returning multiple values and getting at the
+nonprimary values returned by forms that return multiple values. The starting points for returning
+multiple values are the functions  VALUES and  VALUES-LIST . These are regular functions, not
+special operators, so their arguments are passed in the normal way.  VALUES takes a variable
+number of arguments and returns them as multiple values;  VALUES-LIST takes a single list and
+returns its elements as multiple values. In other words:
+(values-list x)  ≡ (apply #'values x)
+
+
+(funcall #'+ (values 1 2) (values 3 4)) → 4
+
+(multiple-value-call #'+ (values 1 2) (values 3 4))  → 10
+However, it’s fairly rare that you’ll simply want to pass all the values returned by a function
+onto another function. More likely, you’ll want to stash the multiple values in different vari-
+ables and then do something with them. The  MULTIPLE-VALUE-BIND macro, which you saw in
+Chapter 11, is the most frequently used operator for accepting multiple return values. Its skeleton 
+looks like this:
+(multiple-value-bind (variable*) values-form
+  body-form*)
+The values-form is evaluated, and the multiple values it returns are bound to the variables.
+Then the body-forms are evaluated with those bindings in effect. Thus:
+(multiple-value-bind (x y) (values 1 2)
+  (+ x y))  → 3
+
+Another macro,  MULTIPLE-VALUE-LIST , is even simpler—it takes a single form, evaluates
+it, and collects the resulting multiple values into a list. In other words, it’s the inverse of
+VALUES-LIST .
+CL-USER> (multiple-value-list (values 1 2))
+(1 2)
+CL-USER> (values-list (multiple-value-list (values 1 2)))
+1
+2
+However, if you find yourself using  MULTIPLE-VALUE-LIST a lot, it may be a sign that some
+function should be returning a list to start with rather than multiple values.
+Finally, if you want to assign multiple values returned by a form to existing variables, you
+can use  VALUES as a  SETF able place. For example:
+CL-USER> (defparameter *x* nil)
+*X*
+CL-USER> (defparameter *y* nil)
+*Y*
+CL-USER> (setf (values *x* *y*) (floor (/ 57 34)))
+1
+23/34
+CL-USER> *x*
+1
+CL-USER> *y*
+23/34
+
+## EVAL-WHEN
+
+
+
+
+
+
+
+
+
+
+
