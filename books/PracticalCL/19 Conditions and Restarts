@@ -1,0 +1,43 @@
+# Beyond Exception Handling: Conditions and Restarts
+
+One of Lisp’s great features is its condition system. It serves a similar purpose to the exception
+handling systems in Java, Python, and C++ but is more flexible. In fact, its flexibility extends
+beyond error handling—conditions are more general than exceptions in that a condition can
+represent any occurrence during a program’s execution that may be of interest to code at
+different levels on the call stack. For example, in the section “Other Uses for Conditions,” you’ll
+see that conditions can be used to emit warnings without disrupting execution of the code that
+emits the warning while allowing code higher on the call stack to control whether the warning
+message is printed. For the time being, however, I’ll focus on error handling.
+
+The condition system is more flexible than exception systems because instead of providing
+a two-part division between the code that signals an error1 and the code that handles it,2 the
+condition system splits the responsibilities into three parts—signaling a condition, handling it,
+and restarting. In this chapter, I’ll describe how you could use conditions in part of a hypothetical（假想的）
+application for analyzing log files. You’ll see how you could use the condition system to allow a
+low-level function to detect（检测） a problem while parsing（解析） a log file and signal an error, to allow mid-
+level code to provide several possible ways of recovering from such an error, and to allow code
+at the highest level of the application to define a policy for choosing which recovery strategy to use.
+
+如果某件事可能出错，那么它终将出错。
+错误不是由于bug引起的，但忽略处理错误总是一个bug。
+To start, I’ll introduce some terminology: errors, as I’ll use the term, are the consequences
+of Murphy’s law.（墨菲法则） If something can go wrong, it will: a file that your program needs to read will
+be missing, a disk that you need to write to will be full, the server you’re talking to will crash, or
+the network will go down. If any of these things happen, it may stop a piece of code from doing
+what you want. But there’s no bug; there’s no place in the code that you can fix to make the
+nonexistent file exist or the disk not be full. However, if the rest of the program is depending on
+the actions that were going to be taken, then you’d better deal with the error somehow or you
+will have introduced a bug. So, errors aren’t caused by bugs, but neglecting to handle an error
+is almost certainly a bug.
+
+
+
+
+
+
+
+
+
+
+
+
