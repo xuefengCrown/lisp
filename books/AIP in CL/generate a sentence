@@ -155,7 +155,156 @@ the following, the first clause in  generate  handles this case, while the secon
 handles  (1)  and the third handles  (2).  Note that we used the  mappend  function from
 section 1.7 (page 18).
 
+(defun generate (phrase)
+"Generate a random sentence or phrase"
+  (cond ((listp phrase)
+            (mappend #'generate phrase))
+        ((rewrites phrase)
+            (generate (random-elt (rewrites phrase))))
+        (t (list phrase))))
+
+(defun one-of (set)
+"Pick one element of set, and make a 1ist of  it."
+  (list (random-elt set)))
+  
+(defun random-elt (choices)
+"Choose an element from a list at random."
+  (elt choices (random (length choices))))
+
+Like many of the programs in this book, this function is short, but dense with
+information: the craft of programming includes knowing what not to write, as well
+as what to write.
+This style of programming is called  data-driven programming（数据驱动编程）, because the data
+(the list of rewrites associated with a category) drives what the program does next. It
+is a natural and easy-to-use style in Lisp, leading to concise and extensible programs,
+because it is always possible to add a new piece of data with a new association without
+having to modify the original program.
+数据驱动编程是Lisip中自然，容易使用的风格，带来简洁又易扩展的程序，因为我们总是能够在
+不修改源程序的情况下添加新数据。
+Here are some examples of generate in use:
+>  (generate 'sentence)  ==>  (THE TABLE SAW THE BALL)
+>  (generate 'sentence)  ==> (THE WOMAN HIT A TABLE)
+>  (generate 'noun - phrase)  ==>  (THE MAN)
+>  (generate 'verb-phrase)  ==>  (TOOK A TABLE)
 
 
+let is the most common way of introducing variables that are not parameters of
+functions. 
+
+(defun generate (phrase)
+  (setf choices ...) ;; wrong!
+  ... choices ...
+  
+This is wrong because the symbol choices now refers to a special or global variable,
+one that may be shared or changed by other functions. Thus, the function  generate
+is not reliable, because there is no guarantee that choices will retain the same value
+from the time it is set to the time it is referenced again. With  let we introduce a brand
+new variable that nobody else can access; therefore it is guaranteed to maintain the
+proper value.
+
+！！！非常重要！！！
+## 2.4 Two Paths to Follow
+上面的程序的两种版本代表了两种方法，它们在开发程序的过程中一再出现：
+1） 将问题描述最直接的映射进Lisp代码。
+2） 使用可解决问题的最自然的符号/记号，然后只要考虑为这些记号写个解释器。！！！！！！！！！！！！
+The two versions of the preceding program represent two alternate approaches that
+come up time and time again in developing programs:  
+(1) Use the most straightfor-ward mapping of the problem description directly into Lisp code. 
+(2) Use the most natural notation available to solve the problem, and then worry about writing an
+interpreter for that notation.
+方法2引入了额外的步骤，所以对于解决小问题来说增加了一些工作。
+然而，使用这种方法写得程序更容易修改和扩展。尤其适用于有大量数据要account for的domain。
+自然语言的语法就是这样的一个域——实际上，大多数的AI问题都适合这个描述。
+方法2背后的思想是，尽可能用它本身的术语来解决该问题，要最小化写在Lisp中的部分。（???）
+Approach (2) involves an extra step, and thus is more work for small problems.
+However, programs that use this approach are often easier to modify and expand.
+This is especially true in a domain where there is a lot of data to account for. The
+grammar of natural language is one such domain-in fact, most AI problems fit this
+description. The idea behind approach  (2)  is to work with the problem as much as
+possible in its own terms, and to minimize the part of the solution that is written
+directly in Lisp.
+幸运的是，在Lisp中设计新的记号是很容易的——该新记号实际上是新的编程语言。
+因此，Lisp促进了更健壮程序的构建。
+贯穿本书，我们都会提到两种方法。读者将注意到，大部分示例中我们选择第2种方法。
+Fortunately, it is very easy in Lisp to design new notations - in effect, new programming languages. 
+Thus, Lisp encourages the construction of more robust programs.
+Throughout this book, we will be aware of the two approaches. The reader may
+notice that in most cases, we choose the second.
+
+## 2.5 Changing the Grammar without Changing the Program
+We show the utility（效用） of approach  (2)  by defining a new grammar that includes 
+adjectives, prepositional phrases, proper names（专有名词）, and pronouns（代词）. We can then apply the
+generate function without modification to this new grammar.
+generate函数不做修改就可以应用到下面的新语法：
+
+(defparameter *bigger-grammar*
+  '((sentence -> (noun-phrase verb-phrase))
+    (noun-phrase -> (Article Adj* Noun PP*) (Name) (Pronoun))
+    (verb-phrase -> (Verb noun-phrase PP*))
+    (PP* -> () (PP PP*))
+    (Adj* -> () (Adj Adj*))
+    (PP -> (Prep noun-phrase))
+    (Prep -> to in by with on)
+    (Adj -> big little blue green adiabatic)
+    (Article -> the a)
+    (Name -> Pat Kim Lee Terry Robin)
+    (Noun -> man ball woman table)
+    (Verb -> hit took saw liked)
+    (Pronoun -> he she it these those that)))
+
+(setf *grammar* *big-grammar*)
+
+>  (generate 'sentence)
+(A TABLE ON A TABLE IN THE BLUE ADIABATIC MAN SAW ROBIN
+WITH A LITTLE WOMAN)
+>  (generate 'sentence)
+(TERRY SAW A ADIABATIC TABLE ON THE GREEN BALL BY THAT WITH KIM
+IN THESE BY A GREEN WOMAN BY A LITTLE ADIABATIC TABLE IN ROBIN
+ON LEE)
+>  (generate 'sentence)
+(THE GREEN TABLE HIT IT WITH HE)
+Notice the problem with case agreement for pronouns: the program generated "with
+he, " although "with him" is the proper grammatical form. Also, it is clear that the
+program does not distinguish sensible from silly output.
+
+## 2.6  Using the Same Data for Several Programs
+Another advantage of representing information in a declarative form - as rules or
+facts rather than as Lisp functions - is that it can be easier to use the information for
+multiple purposes. Suppose we wanted a function that would generate not just the
+list of words in a sentence but a representation of the complete syntax of a sentence.
+For example, instead of the list  (a woman took a ball),  we want to get the nested list:
+
+(SENTENCE (NOUN-PHRASE (ARTICLE A) (NOUN WOMAN))
+          (VERB-PHRASE (VERB TOOK)
+                       (NOUN-PHRASE (ARTICLE A) (NOUN BALL))))
 
 
+Using the "straightforward functions" approach we would be stuck; we'd have to
+rewrite every function to generate the additional structure. With the "new notation"
+approach we could keep the grammar as it is and just write one new function: a
+version of generate that produces nested lists. The two changes are to cons the
+category onto the front of each rewrite, and then not to append together the results
+but rather just list them with mapcar:
+
+(defun generate-tree (phrase)
+"Generate a random sentence or phrase
+with a complete parse tree."
+  (cond ((listp phrase)
+            (mapcar #'generate-tree phrase))
+        ((rewrites phrase)
+            (cons phrase
+                  (generate (random-elt (rewrites phrase)))))
+        (t (list phrase))))
+
+
+Exercise 2.3 [h]  Write a trivial grammar for some other language. This can be a
+natural language other than English, or perhaps a subset of a computer language.
+
+Exercise 2.4 [rn] One way of describing combine-all is that it calculates the cross-product 
+of the function append on the argument lists. Write the higher-order function
+cross-product, and define combine-all in terms of it.
+The moral is to make your code as general as possible, because you never know what
+you may want to do with it next.
+
+;;
+;;
