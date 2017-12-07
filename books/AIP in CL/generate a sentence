@@ -1,0 +1,161 @@
+# chapter2 
+
+The program works fine, and the trace looks just like the sample derivation above,
+but the Lisp definitions are a bit harder to read than the original grammar rules.
+This problem will be compounded as we consider more complex rules. Suppose we
+wanted to allow noun phrases to be modified by an indefinite number of adjectives
+and an indefinite number of prepositional phrases. In grammatical notation, we
+might have the following rules:
+Noun-Phrase ==> Article  +  Adj*  +  Noun  +  PP*
+Adj* ==> 0,  Adj  +  Adj*
+PP* ==> 0,PP+PP*
+PP ==> Prep  +  Noun-Phrase
+Adj ==> big, little, blue, green,  . . .
+Prep ==> to, in, by, with,  . .  .
+In this notation,  0  indicates a choice of nothing at all, a comma indicates a choice of
+several alternatives, and the asterisk is nothing special - as in Lisp, it's just part of the
+name of a symbol. However, the convention used here is that names ending in an
+asterisk denote zero or more repetitions of the underlying name. That is,  PP*  denotes
+zero or more repetitions of  PP.  This is known as "Kleene star"  notation (pronounced
+"clean-E") after the mathematician Stephen Coleleen.
+
+The problem is that the rules for  Adj "  and  PP "  contain choices that we would have
+to represent as some kind of conditional in Lisp. For example:
+(defun Adj* ()
+  (if (= (random 2) 0)
+      nil
+      (append (Adj (Adj*))))
+  
+(defun PP* ()
+  (if (random-elt '(t  nil))
+      (append  (PP)  (PP*))
+      nil))
+      
+(defun noun-phrase () (append (Article) (Adj*) (Noun) (PP*)))
+(defun PP () (append (Prep) (noun-phrase)))
+(defun Adj () (one-of '(big little blue green adiabatic)))
+(defun Prep () (one-of '(to in by with on)))
+
+I've chosen two different implementations for  Adj*  and  PP*;  either approach would
+work in either function. We have to be careful, though; here are two approaches that
+would not work:
+(defun Adj* ()
+  "Warning-incorrect definition of Adjectives."
+  (one-of '(nil (append (Adj) (Adj*)))))
+
+(defun Adj* ()
+  "Warning-incorrect definition of Adjectives."
+  (one-of (list nil (append (Adj) (Adj*)))))
+
+The first definition is wrong because it could return the literal expression  ((append
+(Adj) (Adj*))) rather than a list of words as expected. The second definition would
+cause infinite recursion, because computing the value of  (Adj*) always involves a
+recursive call to  (Adj*).
+
+The point is that what started out as simple functions are now becoming quite complex. 
+To understand them, we need to know many Lisp conventions - defun, (),  case,  
+if, quote, and the rules for order of evaluation - when
+ideally the implementation of a grammar rule should use only  linguistic  conventions.
+If we wanted to develop a larger grammar, the problem could get worse, because the
+rule - writer might have to depend more and more on Lisp.
+
+## 2.3 A Rule-Based Solution
+基于规则的解决方案
+
+An alternative implementation of this program would concentrate on making it easy
+to write grammar rules and would worry later about how they will be processed.
+Let's look again at the original grammar rules:
+
+Sentence ==> Noun-Phrase + Verb-Phrase
+Noun-Phrase ==> Article + Noun
+Verb-Phrase ==> Verb + Noun-Phrase
+Article ==> the, a, ...
+Noun ==> man, ball, woman, table...
+Verb ==> hit, took, saw, liked...
+
+
+Each rule consists of an arrow with a symbol on the left - hand side and something on
+the right - hand side. The complication is that there can be two kinds of right - hand
+sides: a concatenated list of symbols, as in  "Noun-Phrase ==> Article + Noun,"  or a list of
+alternate words, as in "Noun ==> man, ball, ..."  We can account for these possibilities
+by deciding that every rule will have a list of possibilities on the right - hand side, and
+that a concatenated list, for example "Article + Noun,"  will be represented as a Lisp list,
+fir example "(Article Noun)".  The list of rules can then be represented as follows:
+(defparameter *simple-grammar*
+  '((sentence -> (noun-phrase verb-phrase))
+  (noun-phrase -> (Article Noun))
+  (verb-phrase -> (Verb noun-phrase))
+  (Article -> the a)
+  (Noun -> man ball woman table)
+  (Verb -> hit took saw liked))
+  "A grammar for a trivial subset of English.")
+  
+(defvar *grammar* *simple-grammar*
+"The grammar used by generate. Initially, this is
+*simple-grammar*, but we can switch to other grammars.")
+
+Note that the Lisp version of the rules closely mimics the original version. 
+In particular, I include the symbol  "->", even though it serves no real purpose; 
+it is purely decorative.
+
+The special forms defvar and defparameter both introduce special variables
+and assign a value to them; the difference is that a variable, like *grammar*, is
+routinely changed during the course of running the program.  A  parameter, like
+*simple-grammar*, on the other hand, will normally stay constant.  A change to a
+parameter is considered a change to the program, not a change  by  the program.
+Once the list of rules has been defined, it can be used to find the possible rewrites
+of a given category symbol. The function assoc is designed for just this sort of task.
+
+It takes two arguments, a "key" and a list of lists, and returns the first element of the
+list of lists that starts with the key. If there is none, it returns nil. Here is an example:
+
+CL-USER> (assoc 'verb *simple-grammar*)
+(VERB -> HIT TOOK SAW LIKED)
+
+
+Although rules are quite simply implemented as lists, it is a good idea to impose a
+layer of abstraction by defining functions to operate on the rules. We will need three
+functions: one to get the right-hand side of a rule, one for the left-hand side, and one
+to look up all the possible rewrites (right-hand sides) for a category.
+(defun rule-lhs (rule)
+"The left-hand side of a rule."
+  (first rule))
+
+(defun rule-rhs (rule)
+"The right-hand side of a rule."
+  (rest (rest rule)))
+  
+(defun rewrites (category)
+"Return a list of the possible rewrites for this category. "
+  (rule-rhs (assoc category *grammar*)))
+
+CL-USER> (rule-lhs (assoc 'verb *simple-grammar*))
+VERB
+CL-USER> (rule-rhs (assoc 'verb *simple-grammar*))
+(HIT TOOK SAW LIKED)
+
+CL-USER> (rewrites 'noun-phrase)
+((ARTICLE NOUN))
+CL-USER> (rewrites 'verb)
+(HIT TOOK SAW LIKED)
+
+
+We are now ready to address the main problem: defining a function that will
+generate sentences (or nounphrases, or any other category). We will call this function
+generate.  It will have to contend with three cases:  (1)  In the simplest case,  generate
+is passed a symbol that has a set of rewrite rules associated with it. We choose one of
+those at random, and then generate from that.  (2)  If the symbol has no possible rewrite
+rules, it must be a terminal symbol - a word, rather than a grammatical category - and
+we want to leave it alone. Actually, we return the list of the input word, because, as
+in the previous program, we want all results to be lists of words.  (3)  In some cases,
+when the symbol has rewrites, we will pick one that is a list of symbols, and try to
+generate from that. Thus,  generate  must also accept a list as input, in which case
+it should generate each element of the list, and then append them all together. In
+the following, the first clause in  generate  handles this case, while the second clause
+handles  (1)  and the third handles  (2).  Note that we used the  mappend  function from
+section 1.7 (page 18).
+
+
+
+
+
