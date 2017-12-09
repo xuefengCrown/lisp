@@ -1,0 +1,217 @@
+# General Problem Solver
+
+There aye now in the world machines that think.
+- Herbert Simon
+Nobel Prize-winning AI researcher
+
+On one level, this chapter is about GPS. But on another level, it is about the process
+of developing an AI computer program. We distinguish five stages in the development 
+of a program. First is the problem description, which is a rough idea - usually
+written in English prose - of what we want to do. Second is the program specification,
+where we redescribe the problem in terms that are closer to a computable procedure.
+The third stage is the implementation of the program in a programming language
+such as Common Lisp, the fourth is testing, and the fifth is debugging and analysis.
+The boundaries between these stages are fluid, and the stages need not be completed
+in the order stated. Problems at any stage can lead to a change in the previous stage,
+or even to complete redesign or abandonment of the project. A programmer may
+prefer to complete only a partial description or specification, proceed directly to
+implementation and testing, and then return to complete the specification based on
+a better understanding.
+We follow all five stages in the development of our versions of GPS, with the hope
+that the reader will understand GPS better and will also come to understand better
+how to write a program of his or her own. To summarize, the five stages of an AI
+programming project are:
+1.  Describe the problem in vague terms （what we want to do）
+2.  Specify the problem in algorithmic terms
+3.  Implement the problem in a programming language
+4.  Test the program on representative examples
+5.  Debug and analyze the resulting program, and repeat the process
+
+## 4.1 Stage 1: Description
+The theory of means-ends analysis was laid down quite elegantly by Aristotle 2300 years earlier
+in the chapter entitled "The nature of deliberation and its objects"  of the Nicomachean Ethics:
+
+We deliberate not about ends, but about means. For a doctor does not deliberate
+whether he shall heal, nor an orator whether he shall persuade, nor a statesman
+whether he shall produce law and order, nor does any one else deliberate about
+his end. They assume the end and consider how and by what means it is attained;
+and if it seems to be produced by several means they consider by which it is
+most easily and best produced, while if it is achieved by one only they consider
+how it will be achieved by this and by what means this will be achieved, till
+they come to the first cause, which in the order of discovery is last... and what
+is last in the order of analysis seems to be first in the order of becoming. And if
+we come on an impossibility, we give up the search, e.g., if we need money and
+this cannot be got; but if a thing appears possible we try to do it.
+
+Given this description of a theory of problem solving, how should we go about
+writing a program? First, we try to understand more fully the procedure outlined in
+the quotes. The main idea is to solve a problem using a process called means - ends
+analysis, where the problem is stated in terms of what we want to happen. In Newel1
+and Simon's example, the problem is to get the kid to school, but in general we would
+like the program to be able to solve a broad class of problems. We can solve a problem
+if we can find some way to eliminate "the difference between what I have and what
+I want."  For example, if what I have is a child at home, and what I want is a child
+at school, then driving may be a solution, because we know that driving leads to a
+change in location. We should be aware that using means - ends analysis is a choice:
+it is also possible to start from the current situation and search forward to the goal,
+or to employ a mixture of different search strategies.
+
+Some actions require the solving of preconditions（先决条件） as subproblems. Before we can
+drive the car, we need to solve the subproblem of getting the car in working condition.
+It may be that the car is already working, in which case we need do nothing to solve
+the subproblem. So a problem is solved either by taking appropriate action directly,
+or by first solving for the preconditions of an appropriate action and then taking
+the action. It is clear we will need some description of allowable actions, along
+with their preconditions and effects. We will also need to develop a definition of
+appropriateness. However, if we can define these notions better, it seems we won't
+need any new notions. Thus, we will arbitrarily decide that the problem description
+is complete, and move on to the problem specification.
+
+## 4.2 Stage 2: Specification
+At this point we have an idea - admittedly vague - of what it means to solve a problem
+in GPS. We can refine（改善） these notions into representations that are closer to Lisp as
+follows:
+1. We can represent the current state of the world - "what I have" - or the goal
+state - "what I want" - as sets of conditions. Common Lisp doesn't have a data
+type for sets, but it does have lists, which can be used to implement sets. Each
+condition can be represented by a symbol. Thus, a typical goal might be the list
+of two conditions (rich famous),  and a typical current state might be (unknown
+poor).
+??????
+2. We need a list of allowable operators. This list will be constant over the course
+of a problem, or even a series of problems, but we want to be able to change it
+and tackle a new problem domain.
+3. An operator can be represented as a structure composed of an action, a list
+of preconditions, and a list of effects. We can place limits on the kinds of
+possible effects by saying that an effect either adds or deletes a condition from
+the current state. Thus, the list of effects can be split into an add-list and
+a delete-list. This was the approach taken by the STRIPS implementation of
+GPS, which we will be in effect reconstructing in this chapter. The original GPS
+allowed more flexibility in the specification of effects, but flexibility leads to
+inefficiency.
+
+4. A complete problem is described to GPS in terms of a starting state, a goal state,
+and a set of known operators. Thus, GPS will be a function of three arguments.
+For example, a sample call might be:
+
+(GPS '(unknown poor) '(rich famous) list-of-ops)
+
+In other words, starting from the state of being poor and unknown, achieve the
+state of being rich and famous, using any combination of the known operators.
+GPS should return a true value only if it solves the problem, and it should print
+a record of the actions taken. The simplest approach is to go through the
+conditions in the goal state one at a time and try to achieve each one. If they
+can all be achieved, then the problem is solved.
+
+5. A single goal condition can be achieved in two ways. If it is already in the
+current state, the goal is trivially achieved with no effort. Otherwise, we have
+to find some appropriate operator and try to apply it.
+
+6. An operator is appropriate if one of the effects of the operator is to add the goal
+in question to the current state; in other words, if the goal is in the operator's
+add-list.
+
+7. We can apply an operator if we can achieve all the preconditions. But this is
+easy, because we just defined the notion of achieving a goal in the previous
+paragraph. Once the preconditions have been achieved, applying an operator
+means executing the action and updating the current state in term of the operator's 
+add-list and delete-list. Since our program is just a simulation - it won't
+be actually driving a car or dialing a telephone - we must be content simply to
+print out the action, rather than taking any real action.
+
+
+## 4.3 Stage 3: Implementation
+
+Next in the GPS program are four function definitions. The main function, GPS, is
+passed three arguments. The first is the current state of the world, the second the
+goal state, and the third a list of allowable operators. The body of the function says
+simply that if we can achieve every one of the goals we have been given, then the
+problem is solved. The unstated alternative is that otherwise, the problem is not
+solved.
+The function achieve is given as an argument a single goal. The function succeeds
+if that goal is already true in the current state (in which case we don't have to do
+anything) or if we can apply an appropriate operator. This is accomplished by first
+building the list of appropriate operators and then testing each in turn until one can
+be applied.  achieve calls find-all, which we defined on page 101. In this use,
+find-all returns a list of operators that match the current goal, according to the
+predicate appropriate-p.
+The function appropriate-p tests if an operator is appropriate for achieving a
+goal. (It follows the Lisp naming convention that predicates end in - p.)
+Finally, the function apply-op says that if we can achieve all the preconditions
+for an appropriate operator, then we can apply the operator. This involves printing
+a message to that effect and changing the state of the world by deleting what was in
+the delete-list and adding what was in the add-list. apply-op is also a predicate; it
+returns t only when the operator can be applied.
+
+
+## 4.4 Stage 4: Test
+With this operator as a model, we can define other operators corresponding to
+Newel1 and Simon's quote on page 109. There will be an operator for installing a
+battery, telling the repair shop the problem, and telephoning the shop. We can fill in
+the "and so on" by adding operators for looking up the shop's phone number and for
+giving the shop money:
+(defparameter *school-ops*
+   (list
+      (make-op :action 'drive-son-to-school
+               :preconds '(son-at-home car-works)
+               :add-list '(son-at-school)
+               :del-list '(son-at-home))
+      (make-op :action 'shop-installs-battery
+               :preconds '(car-needs-battery shop-knows-problem shop-has-money)
+               :add-list '(car-works))
+      (make-op :action 'tell-shop-problem
+               :preconds '(in-communication-with-shop)
+               :add-list '(shop-knows-problem))
+      (make-op :action 'telephone-shop
+               :preconds '(know-phone-number)
+               :add-list '(in-communication-with-shop))
+      (make-op :action 'look-up-number
+               :preconds '(have-phone-book)
+               :add-list '(know-phone-number))
+      (make-op :action 'give-shop-money
+               :preconds '(have-money)
+               :add-list '(shop-has-money)
+               :del-list '(have-money))))
+
+## 4.5 Stage 5: Analysis, or "We Lied about the G"
+In the sections that follow, we examine the question of just how general this General
+Problem Solver is. The next four sections point out limitations of our version of GPS ,
+and we will show how to correct these limitations in a second version of the program.
+One might ask if "limitations" is just a euphemism for "bugs." Are we "enhancing"
+the program, or are we "correcting" it? There are no clear answers on this point,
+because we never insisted on an unambiguous problem description or specification.
+AI programming is largely exploratory programming; the aim is often to discover
+more about the problem area rather than to meet a clearly defined specification. This
+is in contrast to a more traditional notion of programming, where the problem is
+completely specified before the first line of code is written.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
