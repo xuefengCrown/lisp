@@ -1,0 +1,40 @@
+# 计算 基于统计结果的概率
+Per-Word Statistics
+The heart of a statistical spam filter is, of course, the functions that compute statistics-based
+probabilities. The mathematical nuances of why exactly these computations work are
+beyond the scope of this book—interested readers may want to refer to several papers by
+Gary Robinson.10 I’ll focus rather on how they’re implemented.
+
+The starting point for the statistical computations is the set of measured values—the
+frequencies stored in *feature-database*, *total-spams*, and *total-hams*. Assuming that
+the set of messages trained on is statistically representative, you can treat the observed frequencies
+as probabilities of the same features showing up in hams and spams in future messages.
+
+将邮件/信息分类的基本方法是，提取其中的特征，计算含有该特征的邮件是垃圾邮件的独立概率，然后将所有
+这些独立概率综合成该邮件的一个整体评分。带有许多垃圾邮件特征和很少有用特征的邮件将得到将近 1 的评分，
+带有很多有用特征和很少垃圾邮件特征的邮件将得到将近 0 评分。
+The basic plan is to classify a message by extracting the features it contains, computing the
+individual probability that a given message containing the feature is a spam, and then combining
+all the individual probabilities into a total score for the message. Messages with many “spammy”
+features and few “hammy” features will receive a score near 1, and messages with many
+hammy features and few spammy features will score near 0.
+
+The first statistical function you need is one that computes the basic probability that a
+message containing a given feature is a spam. By one point of view, the probability that a given
+message containing the feature is a spam is the ratio of spam messages containing the feature
+to all messages containing the feature. Thus, you could compute it this way:
+(defun spam-probability (feature)
+  (with-slots (spam-count ham-count) feature
+    (/ spam-count (+ spam-count ham-count))))
+
+??? 基于贝叶斯概念的函数
+
+至 276页
+
+
+
+
+
+
+
+
