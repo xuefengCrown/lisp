@@ -1,0 +1,53 @@
+
+## 8.5 多重包 (Multiple Packages)
+大的程序通常切分为多个包。如果程序的每个部分都是一个包，那么开发程序另一个部分的某个人，
+将可以使用符号来作为函数名或变量名，而不必担心名字在别的地方已经被用过了。
+
+在没有提供定义多个命名空间的语言里，工作于大项目的程序员，通常需要想出某些规范（convention），
+来确保他们不会使用同样的名称。举例来说，程序员写显示相关的代码（display code）可能用 disp_ 开头的名字，
+而写数学相关的代码（math code）的程序员仅使用由 math_ 开始的代码。所以若是数学相关的代码里，
+包含一个做快速傅立叶转换的函数时，可能会叫做 math_fft 。
+
+包不过是提供了一种便捷方式来自动办到此事。如果你将函数定义在单独的包里，可以随意使用你喜欢的名字。
+只有你明确导出（ export ）的符号会被别的包看到，而通常前面会有包的名字(或修饰符)。
+
+举例来说，假设一个程序分为两个包， math 与 disp 。如果符号 fft 被 math 包导出，则 disp 包里
+可以用 math:fft 来参照它。在 math 包里，可以只用 fft 来参照。
+
+下面是你可能会放在文件最上方，包含独立包的代码：
+
+(defpackage "MY-APPLICATION"
+            (:use "COMMON-LISP" "MY-UTILITIES")
+            (:nicknames "APP")
+            (:export "WIN" "LOSE" "DRAW"))
+
+(in-package my-application)
+defpackage 定义一个新的包叫做 my-application [1] 它使用了其他两个包， common-lisp 与 my-utilities ，
+这代表着可以不需要用包修饰符（package qualifiers）来存取这些包所导出的符号。
+许多包都使用了 common-lisp 包 ── 因为你不会想给 Lisp 自带的操作符与变量再加上修饰符。
+
+my-application 包本身只输出三个符号: WIN 、 LOSE 以及 DRAW 。
+由于调用 defpackage 给了 my-application 一个匿称 app ，则别的包可以这样引用到这些符号，比如 app:win 。
+
+defpackage 伴随着一个 in-package ，确保当前包是 my-application 。
+所有其它未修饰的符号会被扣押至 my-application ── 除非之后有别的 in-package 出现。
+当一个文件被载入时，当前的包总是被重置成载入之前的值。
+
+## 8.6 关键字 (Keywords)
+在 keyword 包的符号 (称为关键字)有两个独特的性质：它们总是对自己求值，以及可以在任何地方引用它们，
+如 :x 而不是 keyword:x 。我们首次在 44 页 (译注: 3.10 小节）介绍关键字参数时， 
+(member '(a) '((a) (z)) test: #'equal) 比 (member '(a) '((a) (z)) :test #'equal) 读起来更自然。
+现在我们知道为什么第二个较别扭的形式才是对的。 test 前的冒号字首，是关键字的识别符。
+
+为什么使用关键字而不用一般的符号？因为关键字在哪都可以存取。一个函数接受符号作为实参，应该要写成预期关键字的函数。
+举例来说，这个函数可以安全地在任何包里调用:
+
+(defun noise (animal)
+  (case animal
+    (:dog :woof)
+    (:cat :meow)
+    (:pig :oink)))
+但如果是用一般符号写成的话，它只在被定义的包内正常工作，除非关键字也被导出了。
+
+
+
